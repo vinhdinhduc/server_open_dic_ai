@@ -1,65 +1,67 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const { USER_ROLES } = require("../utils/constants");
 
 const userSchema = new mongoose.Schema(
   {
-    username: {
-      type: String,
-      required: [true, "Vui lòng nhập tên người dùng"],
-      unique: true,
-      trim: true,
-      minlength: 3,
-      maxlength: 50,
-    },
     email: {
       type: String,
-      required: [true, "Vui lòng nhập email"],
+      required: [true, "Email là bắt buộc"],
       unique: true,
       lowercase: true,
       trim: true,
-      match: [
-        /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
-        "Email không hợp lệ",
-      ],
+      match: [/^\S+@\S+\.\S+$/, "Email không hợp lệ"],
     },
     password: {
       type: String,
-      required: [true, "Vui lòng nhập mật khẩu"],
-      minlength: 6,
+      required: [true, "Mật khẩu là bắt buộc"],
+      minLength: [6, "Mật khẩu phải có ít nhất 6 ký tự"],
       select: false,
+    },
+    fullName: {
+      type: String,
+      required: [true, "Họ và tên là bắt buộc"],
+      trim: true,
+      maxLength: [50, "Họ và tên không được vượt quá 50 ký tự"],
     },
     role: {
       type: String,
-      enum: ["user", "admin", "moderator"],
-      default: "user",
+      enum: Object.values(USER_ROLES),
+      default: USER_ROLES.USER,
     },
-    avatar: {
+    preferredLanguage: {
       type: String,
-      default: null,
+      enum: ["en", "vi", "lo"],
+      default: "vi",
     },
-    isActive: {
+    status: {
+      type: String,
+      enum: ["active", "inactive", "banned"],
+      default: "active",
+    },
+    emailVerified: {
       type: Boolean,
-      default: true,
+      default: false,
     },
+    contributionCount: {
+      type: Number,
+      default: 0,
+    },
+    lastLogin: Date,
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
+userSchema.index({ role: 1 });
 
-// Hash mật khẩu trước khi lưu
+// Hash password before saving
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) {
-    return next();
-  }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+  if (!this.isModified("password")) return next();
+  this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-// So sánh mật khẩu
-userSchema.methods.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+userSchema.methods.comparePassword = async function (cadidatePassword) {
+  return await bcrypt.compare(cadidatePassword, this.password);
 };
 
 module.exports = mongoose.model("User", userSchema);

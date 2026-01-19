@@ -1,54 +1,55 @@
 const mongoose = require("mongoose");
+const { TERM_STATUS } = require("../utils/constants");
 
 const termSchema = new mongoose.Schema(
   {
     term: {
-      type: String,
-      required: [true, "Vui lòng nhập thuật ngữ"],
-      trim: true,
-      index: true,
+      vi: { type: String, required: true, trim: true },
+      lo: { type: String, trim: true },
+      en: { type: String, trim: true },
     },
     definition: {
-      type: String,
-      required: [true, "Vui lòng nhập định nghĩa"],
+      vi: { type: String, required: true },
+      lo: String,
+      en: String,
     },
-    pronunciation: {
-      type: String,
-      trim: true,
+    detailedExplanation: {
+      vi: String,
+      lo: String,
+      en: String,
     },
-    categories: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Category",
-      },
-    ],
     examples: [
       {
-        text: String,
-        translation: String,
+        vi: String,
+        lo: String,
+        en: String,
       },
     ],
-    synonyms: [String],
-    antonyms: [String],
+    partOfSpeech: String,
+    category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      required: true,
+    },
     relatedTerms: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Term",
       },
     ],
-    source: {
-      type: String,
-      trim: true,
-    },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
-      default: "approved",
+      enum: [TERM_STATUS.DRAFT, TERM_STATUS.PUBLISHED],
+      default: TERM_STATUS.PUBLISHED,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+    },
+    lastModifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
     viewCount: {
       type: Number,
@@ -58,15 +59,28 @@ const termSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    commentCount: {
+      type: Number,
+      default: 0,
+    },
+    tags: [String],
   },
   {
     timestamps: true,
   }
 );
 
-// Index cho tìm kiếm
-termSchema.index({ term: "text", definition: "text" });
-termSchema.index({ categories: 1 });
-termSchema.index({ status: 1 });
+// Text index cho full-text search
+termSchema.index({
+  "term.vi": "text",
+  "term.lo": "text",
+  "term.en": "text",
+  "definition.vi": "text",
+  "definition.lo": "text",
+  "definition.en": "text",
+});
+
+termSchema.index({ category: 1, status: 1 });
+termSchema.index({ createdBy: 1 });
 
 module.exports = mongoose.model("Term", termSchema);

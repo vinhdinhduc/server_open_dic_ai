@@ -3,21 +3,23 @@ const mongoose = require("mongoose");
 const categorySchema = new mongoose.Schema(
   {
     name: {
-      type: String,
-      required: [true, "Vui lòng nhập tên danh mục"],
-      unique: true,
-      trim: true,
-    },
-    description: {
-      type: String,
-      trim: true,
+      vi: { type: String, required: true },
+      lo: String,
+      en: String,
     },
     slug: {
       type: String,
+      required: true,
       unique: true,
       lowercase: true,
     },
-    parent: {
+    description: {
+      vi: String,
+      lo: String,
+      en: String,
+    },
+    icon: String,
+    parentCategory: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       default: null,
@@ -30,24 +32,23 @@ const categorySchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    moderators: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    termCount: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Tạo slug tự động
-categorySchema.pre("save", function (next) {
-  if (this.isModified("name")) {
-    this.slug = this.name
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[đĐ]/g, "d")
-      .replace(/[^a-z0-9\s-]/g, "")
-      .replace(/\s+/g, "-");
-  }
-  next();
-});
+categorySchema.index({ slug: 1 });
+categorySchema.index({ isActive: 1 });
 
 module.exports = mongoose.model("Category", categorySchema);

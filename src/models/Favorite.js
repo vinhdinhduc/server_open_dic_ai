@@ -12,13 +12,12 @@ const favoriteSchema = new mongoose.Schema(
       ref: "Term",
       required: true,
     },
+    note: String,
   },
   {
     timestamps: true,
   }
 );
-
-// Đảm bảo một user chỉ có thể favorite một term một lần
+// Compound index: một user không thể lưu cùng một term 2 lần
 favoriteSchema.index({ user: 1, term: 1 }, { unique: true });
-
 module.exports = mongoose.model("Favorite", favoriteSchema);

@@ -1,74 +1,141 @@
 const { successResponse, errorResponse } = require("../utils/response");
 const Contribution = require("../models/Contribution");
+const contributionService = require("../services/contributionService");
 
 exports.createContribution = async (req, res, next) => {
   try {
-    const { type, term, data, description } = req.body;
+    const contributionData = req.body;
     const userId = req.user._id;
 
-    const contribution = await Contribution.create({
-      type,
-      term,
-      data,
-      description,
-      user: userId,
-    });
-
-    return successResponse(res, "Gửi đóng góp thành công", contribution, 201);
+    const newContribution = await contributionService.createContribution(
+      userId,
+      contributionData,
+    );
+    return successResponse(
+      res,
+      "Đóng góp của bạn đã được gửi và đang chờ kiểm duyệt",
+      newContribution,
+      201,
+    );
   } catch (error) {
     next(error);
   }
 };
 
-exports.getContributions = async (req, res, next) => {
+// Lấy danh sách đóng góp của mình
+
+exports.getMyContribution = async (req, res, next) => {
   try {
-    const { status, page = 1, limit = 10 } = req.query;
-    const query = {};
+    const { status, category } = req.query;
+    const { page, limit } = req.pagination;
+    const userRole = req.user.role;
+    const userId = req.user._id;
 
-    if (status) query.status = status;
-
-    const contributions = await Contribution.find(query)
-      .populate("user", "username email")
-      .populate("term", "term definition")
-      .populate("reviewedBy", "username")
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-
-    const count = await Contribution.countDocuments(query);
-
-    return successResponse(res, "Lấy danh sách đóng góp thành công", {
-      contributions,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.reviewContribution = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { status, reviewNote } = req.body;
-    const reviewerId = req.user._id;
-
-    const contribution = await Contribution.findByIdAndUpdate(
-      id,
-      {
-        status,
-        reviewNote,
-        reviewedBy: reviewerId,
-        reviewedAt: Date.now(),
-      },
-      { new: true }
-    ).populate("user", "username email");
-
-    if (!contribution) {
-      return errorResponse(res, "Không tìm thấy đóng góp", 404);
+    const options = { status, category, page, limit };
+    if (userRole === "user") {
+      options.userId = userId;
     }
 
-    return successResponse(res, "Đánh giá đóng góp thành công", contribution);
+    const result = await contributionService.getMyContribution({}, options);
+    return successResponse(res, "Lấy danh sách đóng góp thành công", result);
+  } catch (error) {
+    next(error);
+  }
+};
+// Lấy chi tiết đóng góp của mình
+
+exports.getContributionById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const contribution = await contributionService.getContributionById(id);
+
+    //Check quyền xem đóng góp
+
+    const isOwner =
+      contribution.contributor._id.toString() === req.user._id.toString();
+    const isModerator = ["moderator", "admin"].includes(req.user.role);
+
+    if (!isOwner && !isModerator) {
+      return errorResponse(res, "Bạn không có quyền xem đóng góp này", 403);
+    }
+
+    return successResponse(
+      res,
+      "Lấy chi tiết đóng góp thành công",
+      contribution,
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+exports.approveContribution = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { moderatorNote } = req.body;
+    const moderatorId = req.user._id;
+    const result = await contributionService.approveContribution(
+      id,
+      moderatorId,
+      moderatorNote,
+    );
+    return successResponse(res, "Phê duyệt đóng góp thành công", result);
+  } catch (error) {
+    next(error);
+  }
+};
+exports.rejectContribution = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { moderatorNote } = req.body;
+    const moderatorId = req.user._id;
+    if (!moderatorNote) {
+      return errorResponse(res, "Vui lòng cung cấp lý do từ chối", 400);
+    }
+    const result = await contributionService.rejectContribution(
+      id,
+      moderatorId,
+      moderatorNote,
+    );
+    return successResponse(res, "Từ chối đóng góp thành công", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   DELETE /api/contributions/:id
+ * @desc    Xóa đóng góp
+ * @access  Private - Owner/Admin
+ */
+exports.deleteContribution = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const result = await contributionService.deleteContribution(id);
+
+    return successResponse(res, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   GET /api/contributions/my
+ * @desc    Lấy danh sách đóng góp của user hiện tại
+ * @access  Private
+ */
+exports.getMyContributions = async (req, res, next) => {
+  try {
+    const { status } = req.query;
+    const { page, limit } = req.pagination;
+    const userId = req.user._id;
+
+    const result = await contributionService.getContributions(
+      {},
+      { page, limit, status, contributor: userId },
+    );
+
+    return successResponse(res, "Lấy danh sách thành công", result);
   } catch (error) {
     next(error);
   }

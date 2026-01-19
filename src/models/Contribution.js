@@ -1,55 +1,72 @@
 const mongoose = require("mongoose");
+const { CONTRIBUTION_STATUS } = require("../utils/constants");
 
 const contributionSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["new_term", "edit_term", "report_error"],
+      enum: ["new_term", "edit_term"],
       required: true,
     },
-    term: {
+    targetTerm: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Term",
-      default: null,
     },
-    data: {
-      type: mongoose.Schema.Types.Mixed,
+    term: {
+      vi: { type: String, required: true },
+      lo: String,
+      en: String,
+    },
+    definition: {
+      vi: { type: String, required: true },
+      lo: String,
+      en: String,
+    },
+    detailedExplanation: {
+      vi: String,
+      lo: String,
+      en: String,
+    },
+    examples: [
+      {
+        vi: String,
+        lo: String,
+        en: String,
+      },
+    ],
+    category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
       required: true,
     },
-    description: {
-      type: String,
-      trim: true,
-    },
-    user: {
+    contributorNote: String,
+    contributor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
-      default: "pending",
+      enum: [
+        CONTRIBUTION_STATUS.PENDING,
+        CONTRIBUTION_STATUS.APPROVED,
+        CONTRIBUTION_STATUS.REJECTED,
+      ],
+      default: CONTRIBUTION_STATUS.PENDING,
     },
-    reviewedBy: {
+    moderator: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      default: null,
     },
-    reviewNote: {
-      type: String,
-      trim: true,
-    },
-    reviewedAt: {
-      type: Date,
-      default: null,
-    },
+    moderatorNote: String,
+    moderatedAt: Date,
   },
   {
     timestamps: true,
   }
 );
 
-contributionSchema.index({ user: 1, status: 1 });
-contributionSchema.index({ status: 1, createdAt: -1 });
+contributionSchema.index({ contributor: 1, status: 1 });
+contributionSchema.index({ category: 1, status: 1 });
 
 module.exports = mongoose.model("Contribution", contributionSchema);

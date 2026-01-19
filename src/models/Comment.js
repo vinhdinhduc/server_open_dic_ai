@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+const { COMMENT_STATUS } = require("../utils/constants");
 const commentSchema = new mongoose.Schema(
   {
     term: {
@@ -7,41 +8,41 @@ const commentSchema = new mongoose.Schema(
       ref: "Term",
       required: true,
     },
-    user: {
+    author: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
     content: {
       type: String,
-      required: [true, "Vui lòng nhập nội dung bình luận"],
+      required: [true, "Nội dung bình luận là bắt buộc"],
       trim: true,
     },
-    parent: {
+    parentComment: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Comment",
       default: null,
     },
-    likes: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
-    isEdited: {
-      type: Boolean,
-      default: false,
+    status: {
+      type: String,
+      enum: [
+        COMMENT_STATUS.PENDING,
+        COMMENT_STATUS.APPROVED,
+        COMMENT_STATUS.REJECTED,
+      ],
     },
-    isDeleted: {
-      type: Boolean,
-      default: false,
+    moderator: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
+    moderatorNote: String,
   },
   {
     timestamps: true,
   }
 );
 
-commentSchema.index({ term: 1, createdAt: -1 });
+commentSchema.index({ term: 1, status: 1 });
+commentSchema.index({ author: 1 });
 
 module.exports = mongoose.model("Comment", commentSchema);

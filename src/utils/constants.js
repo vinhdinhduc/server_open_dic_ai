@@ -10,6 +10,11 @@ module.exports = {
     APPROVED: "approved",
     REJECTED: "rejected",
   },
+  COMMENT_STATUS: {
+    PENDING: "pending",
+    APPROVED: "approved",
+    REJECTED: "rejected",
+  },
 
   CONTRIBUTION_TYPES: {
     NEW_TERM: "new_term",

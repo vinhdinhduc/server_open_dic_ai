@@ -1,19 +1,21 @@
-const { successResponse, errorResponse } = require("../utils/response");
-const Comment = require("../models/Comment");
+// src/controllers/commentController.js
+const { successResponse } = require("../utils/response");
+const commentService = require("../services/commentService");
 
+/**
+ * @route   POST /api/comments
+ * @desc    Tạo bình luận mới
+ * @access  Private
+ */
 exports.createComment = async (req, res, next) => {
   try {
-    const { termId, content, parent } = req.body;
+    const { termId, content, parentComment } = req.body;
     const userId = req.user._id;
 
-    const comment = await Comment.create({
-      term: termId,
-      user: userId,
-      content,
-      parent,
-    });
-
-    await comment.populate("user", "username avatar");
+    const comment = await commentService.createComment(
+      { termId, content, parentComment },
+      userId,
+    );
 
     return successResponse(res, "Tạo bình luận thành công", comment, 201);
   } catch (error) {
@@ -21,56 +23,39 @@ exports.createComment = async (req, res, next) => {
   }
 };
 
-exports.getComments = async (req, res, next) => {
+/**
+ * @route   GET /api/comments/term/:termId
+ * @desc    Lấy bình luận của thuật ngữ
+ * @access  Public
+ */
+exports.getCommentsByTerm = async (req, res, next) => {
   try {
     const { termId } = req.params;
-    const { page = 1, limit = 10 } = req.query;
+    const { page, limit } = req.pagination;
 
-    const comments = await Comment.find({
-      term: termId,
-      parent: null,
-      isDeleted: false,
-    })
-      .populate("user", "username avatar")
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-
-    const count = await Comment.countDocuments({
-      term: termId,
-      parent: null,
-      isDeleted: false,
+    const result = await commentService.getCommentsByTerm(termId, {
+      page,
+      limit,
     });
 
-    return successResponse(res, "Lấy danh sách bình luận thành công", {
-      comments,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
-    });
+    return successResponse(res, "Lấy bình luận thành công", result);
   } catch (error) {
     next(error);
   }
 };
 
+/**
+ * @route   PUT /api/comments/:id
+ * @desc    Cập nhật bình luận
+ * @access  Private - Owner
+ */
 exports.updateComment = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { content } = req.body;
     const userId = req.user._id;
 
-    const comment = await Comment.findOne({ _id: id, user: userId });
-
-    if (!comment) {
-      return errorResponse(
-        res,
-        "Không tìm thấy bình luận hoặc không có quyền chỉnh sửa",
-        404
-      );
-    }
-
-    comment.content = content;
-    comment.isEdited = true;
-    await comment.save();
+    const comment = await commentService.updateComment(id, userId, content);
 
     return successResponse(res, "Cập nhật bình luận thành công", comment);
   } catch (error) {
@@ -78,25 +63,44 @@ exports.updateComment = async (req, res, next) => {
   }
 };
 
+/**
+ * @route   DELETE /api/comments/:id
+ * @desc    Xóa bình luận
+ * @access  Private - Owner/Moderator/Admin
+ */
 exports.deleteComment = async (req, res, next) => {
   try {
     const { id } = req.params;
     const userId = req.user._id;
+    const userRole = req.user.role;
 
-    const comment = await Comment.findOne({ _id: id, user: userId });
+    const result = await commentService.deleteComment(id, userId, userRole);
 
-    if (!comment) {
-      return errorResponse(
-        res,
-        "Không tìm thấy bình luận hoặc không có quyền xóa",
-        404
-      );
-    }
+    return successResponse(res, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
 
-    comment.isDeleted = true;
-    await comment.save();
+/**
+ * @route   POST /api/comments/:id/moderate
+ * @desc    Kiểm duyệt bình luận
+ * @access  Private - Moderator/Admin
+ */
+exports.moderateComment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, moderatorNote } = req.body;
+    const moderatorId = req.user._id;
 
-    return successResponse(res, "Xóa bình luận thành công");
+    const comment = await commentService.moderateComment(
+      id,
+      status,
+      moderatorId,
+      moderatorNote,
+    );
+
+    return successResponse(res, "Kiểm duyệt thành công", comment);
   } catch (error) {
     next(error);
   }
