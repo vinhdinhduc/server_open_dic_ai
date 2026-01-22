@@ -1,40 +1,132 @@
+// src/routes/contributionRoutes.js
 const express = require("express");
-const router = express.Router();
 const { body } = require("express-validator");
 const contributionController = require("../controllers/contributionController");
-const { protect } = require("../middlewares/auth");
-const { authorize } = require("../middlewares/authorize");
-const { validate } = require("../middlewares/validate");
+const { authenticate } = require("../middlewares/auth");
+const { isModerator } = require("../middlewares/authorize");
+const {
+  validate,
+  validatePagination,
+  validateObjectId,
+} = require("../middlewares/validate");
 
-// Tạo đóng góp mới
+const router = express.Router();
+
+/**
+ * @route   POST /api/contributions
+ * @desc    Tạo đóng góp mới
+ * @access  Private
+ */
 router.post(
   "/",
-  protect,
+  authenticate,
   [
     body("type")
-      .isIn(["new_term", "edit_term", "report_error"])
+      .isIn(["new_term", "edit_term"])
       .withMessage("Loại đóng góp không hợp lệ"),
-    body("data").notEmpty().withMessage("Vui lòng nhập dữ liệu đóng góp"),
+    body("term.vi")
+      .trim()
+      .notEmpty()
+      .withMessage("Thuật ngữ tiếng Việt là bắt buộc"),
+    body("definition.vi")
+      .trim()
+      .notEmpty()
+      .withMessage("Định nghĩa tiếng Việt là bắt buộc"),
+    body("category")
+      .notEmpty()
+      .withMessage("Danh mục là bắt buộc")
+      .isMongoId()
+      .withMessage("ID danh mục không hợp lệ"),
+    body("targetTerm")
+      .if(body("type").equals("edit_term"))
+      .notEmpty()
+      .withMessage("Thuật ngữ gốc là bắt buộc khi chỉnh sửa")
+      .isMongoId()
+      .withMessage("ID thuật ngữ không hợp lệ"),
     validate,
   ],
-  contributionController.createContribution
+  contributionController.createContribution,
 );
 
-// Lấy danh sách đóng góp
-router.get("/", protect, contributionController.getContributions);
+/**
+ * @route   GET /api/contributions
+ * @desc    Lấy danh sách đóng góp
+ * @access  Private
+ */
+router.get(
+  "/",
+  authenticate,
+  validatePagination,
+  contributionController.getContributions,
+);
 
-// Đánh giá đóng góp (chỉ admin/moderator)
-router.put(
-  "/:id/review",
-  protect,
-  authorize("admin", "moderator"),
+/**
+ * @route   GET /api/contributions/my
+ * @desc    Lấy đóng góp của user hiện tại
+ * @access  Private
+ */
+router.get(
+  "/my",
+  authenticate,
+  validatePagination,
+  contributionController.getMyContributions,
+);
+
+/**
+ * @route   GET /api/contributions/:id
+ * @desc    Lấy chi tiết đóng góp
+ * @access  Private
+ */
+router.get(
+  "/:id",
+  authenticate,
+  validateObjectId("id"),
+  contributionController.getContributionById,
+);
+
+/**
+ * @route   POST /api/contributions/:id/approve
+ * @desc    Phê duyệt đóng góp
+ * @access  Private - Moderator/Admin
+ */
+router.post(
+  "/:id/approve",
+  authenticate,
+  isModerator,
+  validateObjectId("id"),
+  contributionController.approveContribution,
+);
+
+/**
+ * @route   POST /api/contributions/:id/reject
+ * @desc    Từ chối đóng góp
+ * @access  Private - Moderator/Admin
+ */
+router.post(
+  "/:id/reject",
+  authenticate,
+  isModerator,
+  validateObjectId("id"),
   [
-    body("status")
-      .isIn(["approved", "rejected"])
-      .withMessage("Trạng thái không hợp lệ"),
+    body("moderatorNote")
+      .trim()
+      .notEmpty()
+      .withMessage("Vui lòng nhập lý do từ chối"),
     validate,
   ],
-  contributionController.reviewContribution
+  contributionController.rejectContribution,
+);
+
+/**
+ * @route   DELETE /api/contributions/:id
+ * @desc    Xóa đóng góp
+ * @access  Private - Owner/Admin
+ */
+router.delete(
+  "/:id",
+  authenticate,
+  validateObjectId("id"),
+  contributionController.deleteContribution,
 );
 
 module.exports = router;

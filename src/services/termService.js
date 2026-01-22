@@ -150,3 +150,28 @@ exports.deleteTerm = async (termId) => {
     message: "Xoá thuật ngữ thành công",
   };
 };
+
+//Lưu lịch sử tìm kiếm
+
+exports.saveSearchHistory = async (userId, query, resultCount) => {
+  if (!userId) return;
+  await SearchHistory.create({
+    user: userId,
+    query,
+    resultCount,
+  });
+};
+
+//Lấy gợi ý tìm kiếm
+
+exports.getSuggestions = async (query, language = "vi", limit = 10) => {
+  const regex = new RegExp(query, "i");
+  const terms = await Term.find({
+    [`term.${language}`]: regex,
+    status: TERM_STATUS.APPROVED,
+  })
+    .select(`term.${language}`)
+    .limit(limit);
+
+  return terms.map((term) => term.term[language]);
+};

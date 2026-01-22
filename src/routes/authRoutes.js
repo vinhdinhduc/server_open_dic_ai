@@ -1,42 +1,91 @@
 const express = require("express");
-const router = express.Router();
 const { body } = require("express-validator");
 const authController = require("../controllers/authController");
-const { protect } = require("../middlewares/auth");
+const { authenticate } = require("../middlewares/auth");
 const { validate } = require("../middlewares/validate");
 
-// Đăng ký
+const router = express.Router();
+
+/**
+ * @route   POST /api/auth/register
+ * @desc    Đăng ký tài khoản mới
+ * @access  Public
+ */
 router.post(
   "/register",
   [
-    body("username")
+    body("fullName")
       .trim()
-      .isLength({ min: 3 })
-      .withMessage("Tên người dùng phải có ít nhất 3 ký tự"),
-    body("email").isEmail().withMessage("Email không hợp lệ"),
+      .notEmpty()
+      .withMessage("Họ tên là bắt buộc")
+      .isLength({ max: 50 })
+      .withMessage("Họ tên không được vượt quá 50 ký tự"),
+    body("email")
+      .trim()
+      .notEmpty()
+      .withMessage("Email là bắt buộc")
+      .isEmail()
+      .withMessage("Email không hợp lệ")
+      .normalizeEmail(),
     body("password")
+      .trim()
+      .notEmpty()
+      .withMessage("Mật khẩu là bắt buộc")
       .isLength({ min: 6 })
       .withMessage("Mật khẩu phải có ít nhất 6 ký tự"),
     validate,
   ],
-  authController.register
+  authController.register,
 );
 
-// Đăng nhập
+/**
+ * @route   POST /api/auth/login
+ * @desc    Đăng nhập
+ * @access  Public
+ */
 router.post(
   "/login",
   [
-    body("email").isEmail().withMessage("Email không hợp lệ"),
-    body("password").notEmpty().withMessage("Vui lòng nhập mật khẩu"),
+    body("email")
+      .trim()
+      .notEmpty()
+      .withMessage("Email là bắt buộc")
+      .isEmail()
+      .withMessage("Email không hợp lệ"),
+    body("password").trim().notEmpty().withMessage("Mật khẩu là bắt buộc"),
     validate,
   ],
-  authController.login
+  authController.login,
 );
 
-// Lấy thông tin profile (yêu cầu authentication)
-router.get("/profile", protect, authController.getProfile);
+/**
+ * @route   GET /api/auth/profile
+ * @desc    Lấy thông tin profile
+ * @access  Private
+ */
+router.get("/profile", authenticate, authController.getProfile);
 
-// Cập nhật profile
-router.put("/profile", protect, authController.updateProfile);
+/**
+ * @route   PUT /api/auth/profile
+ * @desc    Cập nhật profile
+ * @access  Private
+ */
+router.put(
+  "/profile",
+  authenticate,
+  [
+    body("fullName")
+      .optional()
+      .trim()
+      .isLength({ max: 50 })
+      .withMessage("Họ tên không được vượt quá 50 ký tự"),
+    body("preferredLanguage")
+      .optional()
+      .isIn(["vi", "lo", "en"])
+      .withMessage("Ngôn ngữ không hợp lệ"),
+    validate,
+  ],
+  authController.updateProfile,
+);
 
 module.exports = router;
