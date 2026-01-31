@@ -28,6 +28,33 @@ module.exports = {
     REJECTED: "rejected",
   },
 
+  // Report (Báo xấu) constants
+  REPORT_TYPES: {
+    TERM: "term",
+    COMMENT: "comment",
+  },
+
+  REPORT_REASONS: {
+    INCORRECT: "incorrect",
+    SPAM: "spam",
+    INAPPROPRIATE: "inappropriate",
+    DUPLICATE: "duplicate",
+    OTHER: "other",
+  },
+
+  REPORT_STATUS: {
+    PENDING: "pending",
+    RESOLVED: "resolved",
+    REJECTED: "rejected",
+  },
+
+  MODERATION_PERMISSIONS: {
+    SUGGESTIONS: "suggestions",
+    CONTRIBUTIONS: "contributions",
+    COMMENTS: "comments",
+    REPORTS: "reports",
+  },
+
   PAGINATION: {
     DEFAULT_PAGE: 1,
     DEFAULT_LIMIT: 10,

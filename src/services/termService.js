@@ -45,11 +45,10 @@ exports.searchTerms = async (query, options = {}) => {
       .limit(limit)
       .populate("category", "name slug")
       .populate("createdBy", "fullName")
-      .select(
-        `term.${language} definition.${language} category viewCount favoritesCount createdAt`,
-      ),
+      .select("term definition category viewCount favoriteCount createdAt"),
     Term.countDocuments(searchQuery),
   ]);
+  console.log("check terms", terms);
 
   return {
     terms,
@@ -126,7 +125,7 @@ exports.updateTerm = async (termId, termData, userId) => {
     throw error;
   }
 
-  Object.assign(term, updateData);
+  Object.assign(term, termData);
   term.lastModifiedBy = userId;
   await term.save();
   return term;

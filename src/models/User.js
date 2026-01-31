@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
-const { USER_ROLES } = require("../utils/constants");
+const { USER_ROLES, MODERATION_PERMISSIONS } = require("../utils/constants");
 
 const userSchema = new mongoose.Schema(
   {
@@ -48,8 +48,23 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
     lastLogin: Date,
+    // Moderation permissions for moderators
+    moderationPermissions: {
+      categories: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Category",
+        },
+      ],
+      permissions: [
+        {
+          type: String,
+          enum: Object.values(MODERATION_PERMISSIONS),
+        },
+      ],
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 userSchema.index({ role: 1 });
 

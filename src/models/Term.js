@@ -39,8 +39,8 @@ const termSchema = new mongoose.Schema(
     ],
     status: {
       type: String,
-      enum: [TERM_STATUS.DRAFT, TERM_STATUS.PUBLISHED],
-      default: TERM_STATUS.PUBLISHED,
+      enum: [TERM_STATUS.PENDING, TERM_STATUS.APPROVED, TERM_STATUS.REJECTED],
+      default: TERM_STATUS.PENDING,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -67,7 +67,7 @@ const termSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Text index cho full-text search

@@ -1,7 +1,7 @@
 const Comment = require("../models/Comment");
 const Term = require("../models/Term");
 const Notification = require("../models/Notification");
-const { COMMENT_STATUS } = require("../utils/constants");
+const { COMMENT_STATUS, USER_ROLES } = require("../utils/constants");
 
 exports.createComment = async (commentData, userId) => {
   const { termId, content, parentCommentId } = commentData;
@@ -47,7 +47,7 @@ exports.createComment = async (commentData, userId) => {
 };
 // Lấy bình luận của thuật ngữ
 
-exports.getCommentByTerm = async (termId, options = {}) => {
+exports.getCommentsByTerm = async (termId, options = {}) => {
   const { page = 1, limit = 10 } = options;
   const skip = (page - 1) * limit;
 
@@ -159,16 +159,39 @@ exports.deleteComment = async (commentId, userId, userRole) => {
 
 exports.moderateComment = async (
   commentId,
-  moderatorId,
   status,
   moderatorId,
   moderatorNote = "",
+  user = null,
 ) => {
-  const comment = await Comment.findById(commentId);
+  const comment = await Comment.findById(commentId).populate("term");
   if (!comment) {
     const error = new Error("Không tìm thấy bình luận");
     error.statusCode = 404;
     throw error;
+  }
+
+  // Lấy category của term để kiểm tra quyền
+  const term = await Term.findById(comment.term);
+  if (!term) {
+    const error = new Error("Không tìm thấy thuật ngữ liên quan");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Kiểm tra quyền category cho moderator
+  if (user && user.role === USER_ROLES.MODERATOR) {
+    const allowedCategories = user.moderationPermissions?.categories || [];
+    const isAllowed = allowedCategories.some(
+      (cat) => cat.toString() === term.category.toString(),
+    );
+    if (!isAllowed) {
+      const error = new Error(
+        "Bạn không có quyền kiểm duyệt bình luận trong danh mục này",
+      );
+      error.statusCode = 403;
+      throw error;
+    }
   }
 
   comment.status = status;

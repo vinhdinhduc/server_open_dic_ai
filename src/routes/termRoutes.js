@@ -1,5 +1,4 @@
 const express = require("express");
-const { body } = require("express-validator");
 const termController = require("../controllers/termController");
 const { authenticate, optionalAuth } = require("../middlewares/auth");
 const { isModerator } = require("../middlewares/authorize");
@@ -8,6 +7,7 @@ const {
   validatePagination,
   validateObjectId,
 } = require("../middlewares/validate");
+const { termValidators } = require("../validators");
 
 const router = express.Router();
 
@@ -58,22 +58,8 @@ router.post(
   "/",
   authenticate,
   isModerator,
-  [
-    body("term.vi")
-      .trim()
-      .notEmpty()
-      .withMessage("Thuật ngữ tiếng Việt là bắt buộc"),
-    body("definition.vi")
-      .trim()
-      .notEmpty()
-      .withMessage("Định nghĩa tiếng Việt là bắt buộc"),
-    body("category")
-      .notEmpty()
-      .withMessage("Danh mục là bắt buộc")
-      .isMongoId()
-      .withMessage("ID danh mục không hợp lệ"),
-    validate,
-  ],
+  termValidators.create,
+  validate,
   termController.createTerm,
 );
 
@@ -87,19 +73,8 @@ router.put(
   authenticate,
   isModerator,
   validateObjectId("id"),
-  [
-    body("term.vi")
-      .optional()
-      .trim()
-      .notEmpty()
-      .withMessage("Thuật ngữ tiếng Việt không được để trống"),
-    body("definition.vi")
-      .optional()
-      .trim()
-      .notEmpty()
-      .withMessage("Định nghĩa tiếng Việt không được để trống"),
-    validate,
-  ],
+  termValidators.update,
+  validate,
   termController.updateTerm,
 );
 

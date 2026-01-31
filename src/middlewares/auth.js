@@ -44,8 +44,8 @@ exports.authenticate = async (req, res, next) => {
     if (error.name === "TokenExpiredError") {
       return errorResponse(res, "Token đã hết hạn", 401);
     }
+    return errorResponse(res, "Xác thực không thành công", 500);
   }
-  return errorResponse(res, "Xác thực không thành công", 500);
 };
 exports.optionalAuth = async (req, res, next) => {
   try {

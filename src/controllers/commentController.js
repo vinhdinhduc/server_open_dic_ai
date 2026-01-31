@@ -9,7 +9,8 @@ const commentService = require("../services/commentService");
  */
 exports.createComment = async (req, res, next) => {
   try {
-    const { termId, content, parentComment } = req.body;
+    const termId = req.body.term || req.body.termId;
+    const { content, parentComment } = req.body;
     const userId = req.user._id;
 
     const comment = await commentService.createComment(
@@ -98,6 +99,7 @@ exports.moderateComment = async (req, res, next) => {
       status,
       moderatorId,
       moderatorNote,
+      req.user, // Truyền user để kiểm tra quyền category
     );
 
     return successResponse(res, "Kiểm duyệt thành công", comment);

@@ -5,6 +5,8 @@ exports.searchTerms = async (req, res, next) => {
   try {
     const { q, category, language, sortBy } = req.query;
     const { page, limit } = req.pagination;
+    console.log("check ", q, category, language);
+
     const result = await termService.searchTerms(q, {
       category,
       language,
@@ -36,6 +38,7 @@ exports.getSuggestions = async (req, res, next) => {
     }
 
     const suggestions = await termService.getSuggestions(q, language, limit);
+    console.log("Check suggestions", suggestions);
     return successResponse(res, "Lấy gợi ý thành công", { suggestions });
   } catch (error) {
     next(error);
@@ -55,7 +58,7 @@ exports.createTerm = async (req, res, next) => {
   try {
     const termData = req.body;
     const userId = req.user._id;
-    const newTerm = await termService.createTerm(userId, termData);
+    const newTerm = await termService.createTerm(termData, userId);
     return successResponse(res, "Tạo thuật ngữ thành công", newTerm, 201);
   } catch (error) {
     next(error);
@@ -67,7 +70,7 @@ exports.updateTerm = async (req, res, next) => {
     const { id } = req.params;
     const termData = req.body;
     const userId = req.user._id;
-    const updatedTerm = await termService.updateTerm(userId, id, termData);
+    const updatedTerm = await termService.updateTerm(id, termData, userId);
     return successResponse(res, "Cập nhật thuật ngữ thành công", updatedTerm);
   } catch (error) {
     next(error);

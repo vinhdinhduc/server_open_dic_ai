@@ -1,14 +1,14 @@
-// src/routes/contributionRoutes.js
 const express = require("express");
-const { body } = require("express-validator");
 const contributionController = require("../controllers/contributionController");
 const { authenticate } = require("../middlewares/auth");
-const { isModerator } = require("../middlewares/authorize");
+const { checkModeratorPermission } = require("../middlewares/authorize");
 const {
   validate,
   validatePagination,
   validateObjectId,
 } = require("../middlewares/validate");
+const { contributionValidators } = require("../validators");
+const { MODERATION_PERMISSIONS } = require("../utils/constants");
 
 const router = express.Router();
 
@@ -20,56 +20,21 @@ const router = express.Router();
 router.post(
   "/",
   authenticate,
-  [
-    body("type")
-      .isIn(["new_term", "edit_term"])
-      .withMessage("Loại đóng góp không hợp lệ"),
-    body("term.vi")
-      .trim()
-      .notEmpty()
-      .withMessage("Thuật ngữ tiếng Việt là bắt buộc"),
-    body("definition.vi")
-      .trim()
-      .notEmpty()
-      .withMessage("Định nghĩa tiếng Việt là bắt buộc"),
-    body("category")
-      .notEmpty()
-      .withMessage("Danh mục là bắt buộc")
-      .isMongoId()
-      .withMessage("ID danh mục không hợp lệ"),
-    body("targetTerm")
-      .if(body("type").equals("edit_term"))
-      .notEmpty()
-      .withMessage("Thuật ngữ gốc là bắt buộc khi chỉnh sửa")
-      .isMongoId()
-      .withMessage("ID thuật ngữ không hợp lệ"),
-    validate,
-  ],
+  contributionValidators.create,
+  validate,
   contributionController.createContribution,
 );
 
 /**
  * @route   GET /api/contributions
- * @desc    Lấy danh sách đóng góp
+ * @desc    Lấy danh sách đóng góp (của mình hoặc tất cả tùy role)
  * @access  Private
  */
 router.get(
   "/",
   authenticate,
   validatePagination,
-  contributionController.getContributions,
-);
-
-/**
- * @route   GET /api/contributions/my
- * @desc    Lấy đóng góp của user hiện tại
- * @access  Private
- */
-router.get(
-  "/my",
-  authenticate,
-  validatePagination,
-  contributionController.getMyContributions,
+  contributionController.getMyContribution, // Sửa từ getContributions -> getMyContribution
 );
 
 /**
@@ -92,7 +57,7 @@ router.get(
 router.post(
   "/:id/approve",
   authenticate,
-  isModerator,
+  checkModeratorPermission(MODERATION_PERMISSIONS.CONTRIBUTIONS),
   validateObjectId("id"),
   contributionController.approveContribution,
 );
@@ -105,15 +70,10 @@ router.post(
 router.post(
   "/:id/reject",
   authenticate,
-  isModerator,
+  checkModeratorPermission(MODERATION_PERMISSIONS.CONTRIBUTIONS),
   validateObjectId("id"),
-  [
-    body("moderatorNote")
-      .trim()
-      .notEmpty()
-      .withMessage("Vui lòng nhập lý do từ chối"),
-    validate,
-  ],
+  contributionValidators.reject,
+  validate,
   contributionController.rejectContribution,
 );
 

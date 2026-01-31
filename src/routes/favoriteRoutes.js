@@ -1,5 +1,4 @@
 const express = require("express");
-const { body } = require("express-validator");
 const favoriteController = require("../controllers/favoriteController");
 const { authenticate } = require("../middlewares/auth");
 const {
@@ -7,6 +6,7 @@ const {
   validatePagination,
   validateObjectId,
 } = require("../middlewares/validate");
+const { favoriteValidators } = require("../validators");
 
 const favoriteRouter = express.Router();
 
@@ -18,18 +18,8 @@ const favoriteRouter = express.Router();
 favoriteRouter.post(
   "/",
   authenticate,
-  [
-    body("termId")
-      .notEmpty()
-      .withMessage("ID thuật ngữ là bắt buộc")
-      .isMongoId()
-      .withMessage("ID thuật ngữ không hợp lệ"),
-    body("note")
-      .optional()
-      .isLength({ max: 200 })
-      .withMessage("Ghi chú không được vượt quá 200 ký tự"),
-    validate,
-  ],
+  favoriteValidators.add,
+  validate,
   favoriteController.addFavorite,
 );
 
@@ -70,6 +60,19 @@ favoriteRouter.get(
 );
 
 /**
+ * @route   POST /api/favorites/toggle
+ * @desc    Toggle yêu thích (thêm nếu chưa có, xóa nếu đã có)
+ * @access  Private
+ */
+favoriteRouter.post(
+  "/toggle",
+  authenticate,
+  favoriteValidators.add,
+  validate,
+  favoriteController.toggleFavorite,
+);
+
+/**
  * @route   PUT /api/favorites/:termId/note
  * @desc    Cập nhật ghi chú
  * @access  Private
@@ -78,13 +81,8 @@ favoriteRouter.put(
   "/:termId/note",
   authenticate,
   validateObjectId("termId"),
-  [
-    body("note")
-      .optional()
-      .isLength({ max: 200 })
-      .withMessage("Ghi chú không được vượt quá 200 ký tự"),
-    validate,
-  ],
+  favoriteValidators.updateNote,
+  validate,
   favoriteController.updateNote,
 );
 

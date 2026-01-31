@@ -8,7 +8,8 @@ const favoriteService = require("../services/favoriteService");
  */
 exports.addFavorite = async (req, res, next) => {
   try {
-    const { termId, note } = req.body;
+    const termId = req.body.term || req.body.termId;
+    const { note } = req.body;
     const userId = req.user._id;
 
     const favorite = await favoriteService.addFavorite(userId, termId, note);
@@ -97,6 +98,28 @@ exports.updateNote = async (req, res, next) => {
     const favorite = await favoriteService.updateNote(userId, termId, note);
 
     return successResponse(res, "Cập nhật ghi chú thành công", favorite);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   POST /api/favorites/toggle
+ * @desc    Toggle favorite - thêm nếu chưa có, xóa nếu đã có
+ * @access  Private
+ */
+exports.toggleFavorite = async (req, res, next) => {
+  try {
+    const { term: termId } = req.body;
+    const userId = req.user._id;
+
+    const result = await favoriteService.toggleFavorite(userId, termId);
+
+    return successResponse(
+      res,
+      result.isFavorited ? "Đã thêm vào yêu thích" : "Đã bỏ khỏi yêu thích",
+      result,
+    );
   } catch (error) {
     next(error);
   }

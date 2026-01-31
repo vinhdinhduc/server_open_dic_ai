@@ -22,8 +22,7 @@ exports.createContribution = async (req, res, next) => {
   }
 };
 
-// Lấy danh sách đóng góp của mình
-
+// Lấy danh sách đóng góp (của mình hoặc tất cả tùy role)
 exports.getMyContribution = async (req, res, next) => {
   try {
     const { status, category } = req.query;
@@ -42,6 +41,7 @@ exports.getMyContribution = async (req, res, next) => {
     next(error);
   }
 };
+
 // Lấy chi tiết đóng góp của mình
 
 exports.getContributionById = async (req, res, next) => {
@@ -77,6 +77,7 @@ exports.approveContribution = async (req, res, next) => {
       id,
       moderatorId,
       moderatorNote,
+      req.user, // Truyền user để kiểm tra quyền category
     );
     return successResponse(res, "Phê duyệt đóng góp thành công", result);
   } catch (error) {
@@ -95,6 +96,7 @@ exports.rejectContribution = async (req, res, next) => {
       id,
       moderatorId,
       moderatorNote,
+      req.user, // Truyền user để kiểm tra quyền category
     );
     return successResponse(res, "Từ chối đóng góp thành công", result);
   } catch (error) {
@@ -114,28 +116,6 @@ exports.deleteContribution = async (req, res, next) => {
     const result = await contributionService.deleteContribution(id);
 
     return successResponse(res, result.message);
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * @route   GET /api/contributions/my
- * @desc    Lấy danh sách đóng góp của user hiện tại
- * @access  Private
- */
-exports.getMyContributions = async (req, res, next) => {
-  try {
-    const { status } = req.query;
-    const { page, limit } = req.pagination;
-    const userId = req.user._id;
-
-    const result = await contributionService.getContributions(
-      {},
-      { page, limit, status, contributor: userId },
-    );
-
-    return successResponse(res, "Lấy danh sách thành công", result);
   } catch (error) {
     next(error);
   }

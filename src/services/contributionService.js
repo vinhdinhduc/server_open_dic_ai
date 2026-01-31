@@ -2,7 +2,11 @@ const Contribution = require("../models/Contribution");
 const Term = require("../models/Term");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
-const { CONTRIBUTION_STATUS, TERM_STATUS } = require("../utils/constants");
+const {
+  CONTRIBUTION_STATUS,
+  TERM_STATUS,
+  USER_ROLES,
+} = require("../utils/constants");
 //Tạo đóng góp thuật ngữ mới
 exports.createContribution = async (contributionData, userId) => {
   const newContribution = await Contribution.create({
@@ -17,10 +21,22 @@ exports.createContribution = async (contributionData, userId) => {
 };
 //Get list contribution
 
-exports.getContribution = async (filter = {}, options = {}) => {
+exports.getContribution = async (filter = {}, options = {}, user = null) => {
   const { page = 1, limit = 20, status, category, contributor } = options;
   const skip = (page - 1) * limit;
   const query = {};
+
+  // Nếu là moderator, chỉ lấy contributions trong danh mục được phép
+  if (user && user.role === USER_ROLES.MODERATOR) {
+    const allowedCategories = user.moderationPermissions?.categories || [];
+    if (allowedCategories.length === 0) {
+      return {
+        contributions: [],
+        pagination: { page, limit, total: 0, pages: 0 },
+      };
+    }
+    query.category = { $in: allowedCategories };
+  }
 
   if (status) query.status = status;
   if (category) query.category = category;
@@ -70,6 +86,7 @@ exports.approveContribution = async (
   contributionId,
   moderatorId,
   moderatorNote = "",
+  user = null,
 ) => {
   const contribution = await Contribution.findById(contributionId);
   if (!contribution) {
@@ -78,7 +95,22 @@ exports.approveContribution = async (
     throw error;
   }
 
-  if (!contribution.status === CONTRIBUTION_STATUS.PENDING) {
+  // Kiểm tra quyền category cho moderator
+  if (user && user.role === USER_ROLES.MODERATOR) {
+    const allowedCategories = user.moderationPermissions?.categories || [];
+    const isAllowed = allowedCategories.some(
+      (cat) => cat.toString() === contribution.category.toString(),
+    );
+    if (!isAllowed) {
+      const error = new Error(
+        "Bạn không có quyền kiểm duyệt đóng góp trong danh mục này",
+      );
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
+  if (contribution.status !== CONTRIBUTION_STATUS.PENDING) {
     const error = new Error("Đóng góp đã được xử lý");
     error.statusCode = 400;
     throw error;
@@ -137,6 +169,7 @@ exports.rejectContribution = async (
   contributionId,
   moderatorId,
   moderatorNote = "",
+  user = null,
 ) => {
   const contribution = await Contribution.findById(contributionId);
   if (!contribution) {
@@ -144,6 +177,22 @@ exports.rejectContribution = async (
     error.statusCode = 404;
     throw error;
   }
+
+  // Kiểm tra quyền category cho moderator
+  if (user && user.role === USER_ROLES.MODERATOR) {
+    const allowedCategories = user.moderationPermissions?.categories || [];
+    const isAllowed = allowedCategories.some(
+      (cat) => cat.toString() === contribution.category.toString(),
+    );
+    if (!isAllowed) {
+      const error = new Error(
+        "Bạn không có quyền kiểm duyệt đóng góp trong danh mục này",
+      );
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
   if (contribution.status !== CONTRIBUTION_STATUS.PENDING) {
     const error = new Error("Đóng góp đã được xử lý");
     error.statusCode = 400;

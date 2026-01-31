@@ -2,7 +2,7 @@ const Favorite = require("../models/Favorite");
 const Term = require("../models/Term");
 
 //Add favorite
-exports.addFavorite = async (termId, userId) => {
+exports.addFavorite = async (userId, termId, note = "") => {
   //Check thuật ngữ có tồn tại không
 
   const term = await Term.findById(termId);
@@ -26,11 +26,11 @@ exports.addFavorite = async (termId, userId) => {
   const favorite = await Favorite.create({
     user: userId,
     term: termId,
-    note,
+    note: note || "",
   });
 
   //Tăng favorite count cho term
-  term.favoriteCount += 1;
+  term.favoriteCount = (term.favoriteCount || 0) + 1;
   await term.save();
 
   await favorite.populate("term", "term description category");
@@ -38,7 +38,7 @@ exports.addFavorite = async (termId, userId) => {
 };
 //Remove favorite
 
-exports.removeFavorite = async (termId, userId) => {
+exports.removeFavorite = async (userId, termId) => {
   const favorite = await Favorite.findOne({
     user: userId,
     term: termId,
@@ -93,9 +93,41 @@ exports.getFavorites = async (userId, options = {}) => {
 };
 
 //Check term favorite yet or not
-exports.checkFavorite = async (termId, userId) => {
+exports.checkFavorite = async (userId, termId) => {
   const favorite = await Favorite.findOne({ user: userId, term: termId });
-  return { isFavorite: !!favorite };
+  return { isFavorited: !!favorite };
+};
+
+// Toggle favorite - thêm nếu chưa có, xóa nếu đã có
+exports.toggleFavorite = async (userId, termId) => {
+  const term = await Term.findById(termId);
+  if (!term) {
+    const error = new Error("Thuật ngữ không tồn tại");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const existingFavorite = await Favorite.findOne({
+    user: userId,
+    term: termId,
+  });
+
+  if (existingFavorite) {
+    // Đã favorite -> xóa
+    await existingFavorite.deleteOne();
+    term.favoriteCount = Math.max(0, (term.favoriteCount || 0) - 1);
+    await term.save();
+    return { isFavorited: false };
+  } else {
+    // Chưa favorite -> thêm
+    await Favorite.create({
+      user: userId,
+      term: termId,
+    });
+    term.favoriteCount = (term.favoriteCount || 0) + 1;
+    await term.save();
+    return { isFavorited: true };
+  }
 };
 
 /**

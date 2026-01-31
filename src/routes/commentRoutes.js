@@ -1,13 +1,14 @@
 const express = require("express");
-const { body } = require("express-validator");
 const commentController = require("../controllers/commentController");
 const { authenticate } = require("../middlewares/auth");
-const { isModerator } = require("../middlewares/authorize");
+const { checkModeratorPermission } = require("../middlewares/authorize");
 const {
   validate,
   validatePagination,
   validateObjectId,
 } = require("../middlewares/validate");
+const { commentValidators } = require("../validators");
+const { MODERATION_PERMISSIONS } = require("../utils/constants");
 
 const router = express.Router();
 
@@ -19,24 +20,8 @@ const router = express.Router();
 router.post(
   "/",
   authenticate,
-  [
-    body("termId")
-      .notEmpty()
-      .withMessage("ID thuật ngữ là bắt buộc")
-      .isMongoId()
-      .withMessage("ID thuật ngữ không hợp lệ"),
-    body("content")
-      .trim()
-      .notEmpty()
-      .withMessage("Nội dung bình luận là bắt buộc")
-      .isLength({ min: 3, max: 500 })
-      .withMessage("Bình luận phải từ 3-500 ký tự"),
-    body("parentComment")
-      .optional()
-      .isMongoId()
-      .withMessage("ID bình luận cha không hợp lệ"),
-    validate,
-  ],
+  commentValidators.create,
+  validate,
   commentController.createComment,
 );
 
@@ -61,15 +46,8 @@ router.put(
   "/:id",
   authenticate,
   validateObjectId("id"),
-  [
-    body("content")
-      .trim()
-      .notEmpty()
-      .withMessage("Nội dung bình luận là bắt buộc")
-      .isLength({ min: 3, max: 500 })
-      .withMessage("Bình luận phải từ 3-500 ký tự"),
-    validate,
-  ],
+  commentValidators.update,
+  validate,
   commentController.updateComment,
 );
 
@@ -93,14 +71,10 @@ router.delete(
 router.post(
   "/:id/moderate",
   authenticate,
-  isModerator,
+  checkModeratorPermission(MODERATION_PERMISSIONS.COMMENTS),
   validateObjectId("id"),
-  [
-    body("status")
-      .isIn(["approved", "rejected"])
-      .withMessage("Trạng thái không hợp lệ"),
-    validate,
-  ],
+  commentValidators.moderate,
+  validate,
   commentController.moderateComment,
 );
 

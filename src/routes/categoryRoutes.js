@@ -1,9 +1,9 @@
 const express = require("express");
-const { body } = require("express-validator");
 const categoryController = require("../controllers/categoryController");
 const { authenticate } = require("../middlewares/auth");
 const { isAdmin } = require("../middlewares/authorize");
 const { validate, validateObjectId } = require("../middlewares/validate");
+const { categoryValidators } = require("../validators");
 
 const router = express.Router();
 
@@ -30,27 +30,8 @@ router.post(
   "/",
   authenticate,
   isAdmin,
-  [
-    body("name.vi")
-      .trim()
-      .notEmpty()
-      .withMessage("Tên danh mục tiếng Việt là bắt buộc"),
-    body("slug")
-      .trim()
-      .notEmpty()
-      .withMessage("Slug là bắt buộc")
-      .matches(/^[a-z0-9-]+$/)
-      .withMessage("Slug chỉ được chứa chữ thường, số và dấu gạch ngang"),
-    body("parentCategory")
-      .optional()
-      .isMongoId()
-      .withMessage("ID danh mục cha không hợp lệ"),
-    body("order")
-      .optional()
-      .isInt({ min: 0 })
-      .withMessage("Thứ tự phải là số nguyên dương"),
-    validate,
-  ],
+  categoryValidators.create,
+  validate,
   categoryController.createCategory,
 );
 
@@ -64,19 +45,8 @@ router.put(
   authenticate,
   isAdmin,
   validateObjectId("id"),
-  [
-    body("name.vi")
-      .optional()
-      .trim()
-      .notEmpty()
-      .withMessage("Tên danh mục không được để trống"),
-    body("slug")
-      .optional()
-      .trim()
-      .matches(/^[a-z0-9-]+$/)
-      .withMessage("Slug chỉ được chứa chữ thường, số và dấu gạch ngang"),
-    validate,
-  ],
+  categoryValidators.update,
+  validate,
   categoryController.updateCategory,
 );
 

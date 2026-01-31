@@ -12,6 +12,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
 const userRoutes = require("./routes/userRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 const app = express();
 
 // Middlewares
@@ -25,11 +26,11 @@ app.use("/api/auth", authRoutes);
 app.use("/api/terms", termRoutes);
 app.use("/api/contributions", contributionRoutes);
 app.use("/api/comments", commentRoutes);
-app.use("/api/import", importRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/reports", reportRoutes);
 
 // Health check
 app.get("/health", (req, res) => {

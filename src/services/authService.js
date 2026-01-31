@@ -28,8 +28,8 @@ exports.register = async ({ fullName, email, password }) => {
   });
 
   //Send verification email (bỏ qua bước này trong ví dụ)
-  user.lastLogin = Date.now();
-  await user.save();
+  newUser.lastLogin = Date.now();
+  await newUser.save();
   // Gen token
 
   const token = generateToken(newUser._id);
@@ -43,7 +43,7 @@ exports.register = async ({ fullName, email, password }) => {
       preferredLanguage: newUser.preferredLanguage,
       status: newUser.status,
     },
-    token,
+    accessToken: token,
   };
 };
 // Đăng nhập
@@ -92,7 +92,7 @@ exports.login = async (email, password) => {
       status: user.status,
       contributionCount: user.contributionCount,
     },
-    token,
+    accessToken: token,
   };
 };
 //Update profile
