@@ -90,7 +90,6 @@ exports.updateUser = async (userId, updateData) => {
     "preferredLanguage",
     "moderationPermissions",
   ];
-  console.log("Check data", userId, updateData);
 
   const filteredData = {};
   Object.keys(updateData).forEach((key) => {

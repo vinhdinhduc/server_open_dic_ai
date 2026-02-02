@@ -1,11 +1,11 @@
 const { successResponse, errorResponse } = require("../utils/response");
 const termService = require("../services/termService");
+const exportService = require("../services/exportService");
 
 exports.searchTerms = async (req, res, next) => {
   try {
     const { q, category, language, sortBy } = req.query;
     const { page, limit } = req.pagination;
-    console.log("check ", q, category, language);
 
     const result = await termService.searchTerms(q, {
       category,
@@ -38,7 +38,6 @@ exports.getSuggestions = async (req, res, next) => {
     }
 
     const suggestions = await termService.getSuggestions(q, language, limit);
-    console.log("Check suggestions", suggestions);
     return successResponse(res, "Lấy gợi ý thành công", { suggestions });
   } catch (error) {
     next(error);
@@ -89,16 +88,75 @@ exports.deleteTerm = async (req, res, next) => {
 
 exports.getTerms = async (req, res, next) => {
   try {
-    const { category, language, sortBy } = req.query;
+    const { category, status, sortBy, search } = req.query;
     const { page, limit } = req.pagination;
-    const result = await termService.searchTerms("", {
+    const result = await termService.getTerms({
       category,
-      language,
+      status,
+      sortBy,
+      search,
+      page,
+      limit,
+    });
+    return successResponse(res, "Lấy danh sách thuật ngữ thành công", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Admin: Lấy tất cả terms với stats
+exports.getTermsForAdmin = async (req, res, next) => {
+  try {
+    const { category, status, sortBy } = req.query;
+    const { page, limit } = req.pagination;
+    const result = await termService.getTermsForAdmin({
+      category,
+      status,
       sortBy,
       page,
       limit,
     });
     return successResponse(res, "Lấy danh sách thuật ngữ thành công", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Admin: Lấy thống kê thuật ngữ
+exports.getTermStats = async (req, res, next) => {
+  try {
+    const stats = await termService.getTermStats();
+    return successResponse(res, "Lấy thống kê thuật ngữ thành công", { stats });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Export terms to Excel
+exports.exportTerms = async (req, res, next) => {
+  try {
+    const { category, status, search, language } = req.query;
+
+    const result = await exportService.exportTermsToExcel({
+      category,
+      status,
+      search,
+      language,
+    });
+
+    // Set headers for file download
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(result.filename)}"`,
+    );
+    res.setHeader("X-Total-Records", result.totalRecords);
+
+    // Send buffer
+    return res.send(result.buffer);
   } catch (error) {
     next(error);
   }

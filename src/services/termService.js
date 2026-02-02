@@ -2,6 +2,7 @@ const Term = require("../models/Term");
 const Category = require("../models/Category");
 const SearchHistory = require("../models/SearchHistory");
 const { TERM_STATUS } = require("../utils/constants");
+const mongoose = require("mongoose");
 
 exports.searchTerms = async (query, options = {}) => {
   const {
@@ -20,9 +21,9 @@ exports.searchTerms = async (query, options = {}) => {
     searchQuery.$text = { $search: query };
   }
 
-  //filter theo category
+  //filter theo category - bỏ qua nếu là "all" hoặc không có giá trị
 
-  if (category) {
+  if (category && category !== "all") {
     searchQuery.category = category;
   }
   searchQuery.status = TERM_STATUS.APPROVED;
@@ -48,7 +49,6 @@ exports.searchTerms = async (query, options = {}) => {
       .select("term definition category viewCount favoriteCount createdAt"),
     Term.countDocuments(searchQuery),
   ]);
-  console.log("check terms", terms);
 
   return {
     terms,
@@ -59,6 +59,105 @@ exports.searchTerms = async (query, options = {}) => {
       pages: Math.ceil(total / limit),
     },
   };
+};
+
+exports.getTerms = async (options = {}) => {
+  const {
+    category,
+    status,
+    search,
+    sortBy = "newest",
+    page = 1,
+    limit = 10,
+  } = options;
+  const skip = (page - 1) * limit;
+  const query = {};
+
+  // Filter theo status - mặc định là approved nếu không có
+  if (status && status !== "all") {
+    query.status = status;
+  }
+
+  // Filter theo category
+  if (category && category !== "all") {
+    query.category = category;
+  }
+
+  // Search theo term (vi, en, lo)
+  if (search && search.trim()) {
+    const searchRegex = new RegExp(search.trim(), "i");
+    query.$or = [
+      { "term.vi": searchRegex },
+      { "term.en": searchRegex },
+      { "term.lo": searchRegex },
+      { "definition.vi": searchRegex },
+      { "definition.en": searchRegex },
+    ];
+  }
+
+  // Sort
+  let sort = {};
+  if (sortBy === "popular") {
+    sort.viewCount = -1;
+  } else if (sortBy === "newest") {
+    sort.createdAt = -1;
+  } else if (sortBy === "alphabet") {
+    sort["term.vi"] = 1;
+  } else if (sortBy === "oldest") {
+    sort.createdAt = 1;
+  }
+
+  const [terms, total] = await Promise.all([
+    Term.find(query)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .populate("category", "name slug")
+      .populate("createdBy", "fullName")
+      .select(
+        "term definition category viewCount favoriteCount commentCount status createdAt updatedAt",
+      ),
+    Term.countDocuments(query),
+  ]);
+
+  return {
+    terms,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+    },
+  };
+};
+
+// Lấy thống kê thuật ngữ
+exports.getTermStats = async () => {
+  const stats = await Term.aggregate([
+    {
+      $group: {
+        _id: "$status",
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  // Format stats
+  const formattedStats = {
+    total: 0,
+    approved: 0,
+    pending: 0,
+    rejected: 0,
+  };
+
+  stats.forEach((s) => {
+    if (s._id && formattedStats.hasOwnProperty(s._id)) {
+      formattedStats[s._id] = s.count;
+    }
+    formattedStats.total += s.count;
+  });
+
+  return formattedStats;
 };
 
 //Get detail term

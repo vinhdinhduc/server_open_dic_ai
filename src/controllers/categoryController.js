@@ -9,7 +9,6 @@ const categoryService = require("../services/categoryService");
 exports.getAllCategories = async (req, res, next) => {
   try {
     const { includeInactive, language } = req.query;
-    console.log("call", includeInactive, language);
 
     const categories = await categoryService.getAllCategories({
       includeInactive: includeInactive === "true",
