@@ -1,5 +1,6 @@
 const { successResponse } = require("../utils/response");
 const userService = require("../services/userService");
+const exportService = require("../services/exportService");
 
 /**
  * @route   POST /api/users
@@ -122,6 +123,28 @@ exports.getUserStats = async (req, res, next) => {
     const stats = await userService.getUserStats();
 
     return successResponse(res, "Lấy thống kê thành công", stats);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.exportUsersToExcel = async (req, res, next) => {
+  try {
+    const data = await exportService.exportUsersToExcel();
+
+    // Set headers for Excel file download
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${data.filename}"`,
+    );
+    res.setHeader("X-Total-Records", data.totalRecords);
+
+    // Send buffer directly
+    return res.send(data.buffer);
   } catch (error) {
     next(error);
   }

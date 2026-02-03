@@ -1,5 +1,6 @@
 const XLSX = require("xlsx");
 const Term = require("../models/Term");
+const User = require("../models/User");
 
 /**
  * Export terms to Excel buffer
@@ -11,8 +12,8 @@ exports.exportTermsToExcel = async (options = {}) => {
     category,
     status,
     search,
-    columns = "all", // 'all' | 'basic' | custom array
-    language = "all", // 'all' | 'vi' | 'en' | 'lo'
+    columns = "all",
+    language = "all",
   } = options;
 
   // Build query
@@ -228,3 +229,47 @@ function formatDateFilename(date) {
   const d = new Date(date);
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
 }
+exports.exportUsersToExcel = async () => {
+  const users = await User.find().lean();
+  const headerRows = [
+    "STT",
+    "Họ và tên",
+    "Email",
+    "Vai trò",
+    "Trạng thái",
+    "Ngày tạo",
+    "Số thuật ngữ đã đóng góp",
+  ];
+  const dataRows = users.map((user, index) => [
+    index + 1,
+    user.fullName || "",
+    user.email || "",
+    user.role,
+    user.status,
+    formatDate(user.createdAt),
+    user.contributedTermsCount || 0,
+  ]);
+
+  const wsData = [headerRows, ...dataRows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  const colWidths = headerRows.map((header) => {
+    if (header === "STT" || header === "Số thuật ngữ đã đóng góp") {
+      return { wch: 10 };
+    }
+    if (header === "Email") {
+      return { wch: 30 };
+    }
+    return { wch: 20 };
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Người dùng");
+
+  const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+  return {
+    buffer,
+    filename: `nguoi-dung-${formatDateFilename(new Date())}.xlsx`,
+    totalRecords: users.length,
+  };
+};

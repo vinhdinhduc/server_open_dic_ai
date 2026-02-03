@@ -3,6 +3,29 @@ const { successResponse } = require("../utils/response");
 const commentService = require("../services/commentService");
 
 /**
+ * @route   GET /api/comments
+ * @desc    Lấy tất cả bình luận cho admin
+ * @access  Private - Moderator/Admin
+ */
+exports.getAllComments = async (req, res, next) => {
+  try {
+    const { page, limit } = req.pagination || { page: 1, limit: 20 };
+    const { status, search } = req.query;
+
+    const result = await commentService.getAllComments({
+      page,
+      limit,
+      status,
+      search,
+    });
+
+    return successResponse(res, "Lấy danh sách bình luận thành công", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * @route   POST /api/comments
  * @desc    Tạo bình luận mới
  * @access  Private

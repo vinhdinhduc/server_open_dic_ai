@@ -29,6 +29,13 @@ router.get("/stats", userController.getUserStats);
 router.get("/", validatePagination, userController.getUsers);
 
 /**
+ * @route   GET /api/users/export/excel
+ * @desc    Xuất danh sách người dùng ra Excel
+ * @access  Private - Admin
+ */
+router.get("/export/excel", userController.exportUsersToExcel);
+
+/**
  * @route   POST /api/users
  * @desc    Tạo người dùng mới
  * @access  Private - Admin

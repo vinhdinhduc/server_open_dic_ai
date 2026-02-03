@@ -3,6 +3,66 @@ const Term = require("../models/Term");
 const Notification = require("../models/Notification");
 const { COMMENT_STATUS, USER_ROLES } = require("../utils/constants");
 
+/**
+ * Lấy tất cả bình luận cho admin
+ * @param {Object} options - Các tùy chọn lọc và phân trang
+ * @returns {Object} Danh sách bình luận và thông tin phân trang
+ */
+exports.getAllComments = async (options = {}) => {
+  const { page = 1, limit = 20, status, search } = options;
+  const skip = (page - 1) * limit;
+
+  // Build query
+  const query = {};
+
+  if (status && status !== "all") {
+    query.status = status;
+  }
+
+  if (search) {
+    query.content = { $regex: search, $options: "i" };
+  }
+
+  const [comments, total] = await Promise.all([
+    Comment.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("author", "fullName email avatar")
+      .populate("moderator", "fullName")
+      .populate({
+        path: "term",
+        select: "term category",
+        populate: { path: "category", select: "name" },
+      })
+      .lean(),
+    Comment.countDocuments(query),
+  ]);
+
+  // Count by status
+  const [pendingCount, approvedCount, rejectedCount] = await Promise.all([
+    Comment.countDocuments({ status: COMMENT_STATUS.PENDING }),
+    Comment.countDocuments({ status: COMMENT_STATUS.APPROVED }),
+    Comment.countDocuments({ status: COMMENT_STATUS.REJECTED }),
+  ]);
+
+  return {
+    comments,
+    stats: {
+      total,
+      pending: pendingCount,
+      approved: approvedCount,
+      rejected: rejectedCount,
+    },
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+    },
+  };
+};
+
 exports.createComment = async (commentData, userId) => {
   const { termId, content, parentCommentId } = commentData;
   //Check term có tồn tại không

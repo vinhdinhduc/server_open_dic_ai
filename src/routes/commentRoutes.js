@@ -13,6 +13,19 @@ const { MODERATION_PERMISSIONS } = require("../utils/constants");
 const router = express.Router();
 
 /**
+ * @route   GET /api/comments
+ * @desc    Lấy tất cả bình luận cho admin
+ * @access  Private - Moderator/Admin
+ */
+router.get(
+  "/",
+  authenticate,
+  checkModeratorPermission(MODERATION_PERMISSIONS.COMMENTS),
+  validatePagination,
+  commentController.getAllComments,
+);
+
+/**
  * @route   POST /api/comments
  * @desc    Tạo bình luận
  * @access  Private
