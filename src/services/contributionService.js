@@ -8,10 +8,10 @@ const {
   USER_ROLES,
 } = require("../utils/constants");
 //Tạo đóng góp thuật ngữ mới
-exports.createContribution = async (contributionData, userId) => {
+exports.createContribution = async (userId, contributionData) => {
   const newContribution = await Contribution.create({
     ...contributionData,
-    createdBy: userId,
+    contributor: userId,
     status: CONTRIBUTION_STATUS.PENDING,
   });
   return newContribution;

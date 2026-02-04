@@ -35,7 +35,7 @@ exports.getMyContribution = async (req, res, next) => {
       options.userId = userId;
     }
 
-    const result = await contributionService.getMyContribution({}, options);
+    const result = await contributionService.getContribution({}, options);
     return successResponse(res, "Lấy danh sách đóng góp thành công", result);
   } catch (error) {
     next(error);
