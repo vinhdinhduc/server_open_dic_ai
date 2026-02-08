@@ -22,6 +22,27 @@ router.use(authenticate, isAdmin);
 router.get("/stats", userController.getUserStats);
 
 /**
+ * @route   GET /api/users/email-config
+ * @desc    Lấy cấu hình email
+ * @access  Private - Admin
+ */
+router.get("/email-config", userController.getEmailConfig);
+
+/**
+ * @route   PUT /api/users/email-config
+ * @desc    Cập nhật cấu hình email
+ * @access  Private - Admin
+ */
+router.put("/email-config", userController.updateEmailConfig);
+
+/**
+ * @route   POST /api/users/test-email
+ * @desc    Test cấu hình email
+ * @access  Private - Admin
+ */
+router.post("/test-email", userController.testEmailConfig);
+
+/**
  * @route   GET /api/users
  * @desc    Lấy danh sách người dùng
  * @access  Private - Admin

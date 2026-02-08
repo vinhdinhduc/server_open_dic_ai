@@ -13,6 +13,8 @@ const categoryRoutes = require("./routes/categoryRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
 const userRoutes = require("./routes/userRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const aiRoutes = require("./routes/aiRoutes");
+const systemConfigRoutes = require("./routes/systemConfigRoutes");
 const app = express();
 
 // Middlewares
@@ -31,6 +33,8 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/ai", aiRoutes);
+app.use("/api/system-config", systemConfigRoutes);
 
 // Health check
 app.get("/health", (req, res) => {

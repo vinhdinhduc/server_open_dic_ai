@@ -6,11 +6,18 @@ const {
   isModerator,
   checkModeratorPermission,
 } = require("../middlewares/authorize");
-const { validatePagination } = require("../middlewares/validate");
+const { validatePagination, validate } = require("../middlewares/validate");
 const { MODERATION_PERMISSIONS } = require("../utils/constants");
+const { reportValidators } = require("../validators");
 
 // Tạo báo xấu - User đã đăng nhập
-router.post("/", authenticate, reportController.createReport);
+router.post(
+  "/",
+  authenticate,
+  reportValidators.create,
+  validate,
+  reportController.createReport,
+);
 
 // Lấy thống kê báo xấu - Moderator/Admin
 router.get(
@@ -42,6 +49,8 @@ router.put(
   "/:id/resolve",
   authenticate,
   checkModeratorPermission(MODERATION_PERMISSIONS.REPORTS),
+  reportValidators.resolve,
+  validate,
   reportController.resolveReport,
 );
 

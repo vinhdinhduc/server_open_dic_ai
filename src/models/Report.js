@@ -7,34 +7,35 @@ const {
 
 const reportSchema = new mongoose.Schema(
   {
-    // Loại báo xấu: term hoặc comment
     type: {
       type: String,
       enum: Object.values(REPORT_TYPES),
       required: true,
+      default: "term",
     },
-    // Reference đến Term hoặc Comment được báo xấu
+
     targetTerm: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Term",
     },
+
     targetComment: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Comment",
     },
-    // Danh mục của term (để lọc theo quyền moderator)
+
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       required: true,
     },
-    // Lý do báo xấu
+
     reason: {
       type: String,
       enum: Object.values(REPORT_REASONS),
       required: true,
     },
-    // Mô tả chi tiết
+
     description: {
       type: String,
       trim: true,

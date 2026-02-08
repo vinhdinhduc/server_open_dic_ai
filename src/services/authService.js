@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const emailService = require("./emailService");
 
 const generateToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
@@ -23,13 +24,19 @@ exports.register = async ({ fullName, email, password }) => {
     fullName,
     email,
     password,
-    status: "inactive",
+    status: "active", // Chuyển sang active để user có thể sử dụng ngay
     emailVerified: false,
   });
 
-  //Send verification email (bỏ qua bước này trong ví dụ)
+  //Send verification email (gửi email chào mừng)
   newUser.lastLogin = Date.now();
   await newUser.save();
+  
+  // Gửi email chào mừng (không chờ kết quả)
+  emailService.sendWelcomeEmail(newUser.email, newUser.fullName).catch(err => {
+    console.error("Failed to send welcome email:", err);
+  });
+  
   // Gen token
 
   const token = generateToken(newUser._id);

@@ -12,6 +12,8 @@ const notificationSchema = new mongoose.Schema({
       "contribution_approved",
       "contribution_rejected",
       "comment_reply",
+      "report_resolved",
+      "report_rejected",
       "system",
     ],
     required: true,
@@ -30,7 +32,7 @@ const notificationSchema = new mongoose.Schema({
   },
   relatedModel: {
     type: String,
-    enum: ["Contribution", "Comment", "Term", null],
+    enum: ["Contribution", "Comment", "Term", "Report", null],
   },
   isRead: {
     type: Boolean,

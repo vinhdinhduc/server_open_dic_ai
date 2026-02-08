@@ -300,6 +300,45 @@ const userValidators = {
   ],
 };
 
+/**
+ * Report Validators
+ */
+const reportValidators = {
+  create: [
+    body("targetId")
+      .notEmpty()
+      .withMessage("ID thuật ngữ báo xấu là bắt buộc")
+      .isMongoId()
+      .withMessage("ID thuật ngữ không hợp lệ"),
+    body("reason")
+      .trim()
+      .notEmpty()
+      .withMessage("Lý do báo xấu là bắt buộc")
+      .isIn(["incorrect", "spam", "inappropriate", "duplicate", "other"])
+      .withMessage("Lý do báo xấu không hợp lệ"),
+    body("description")
+      .optional()
+      .trim()
+      .isLength({ max: 1000 })
+      .withMessage("Mô tả không được vượt quá 1000 ký tự"),
+  ],
+
+  resolve: [
+    body("status")
+      .isIn(["resolved", "rejected"])
+      .withMessage("Trạng thái xử lý không hợp lệ"),
+    body("actionTaken")
+      .optional()
+      .isIn(["none", "warning", "edit", "delete", "ban_user"])
+      .withMessage("Hành động không hợp lệ"),
+    body("moderatorNote")
+      .optional()
+      .trim()
+      .isLength({ max: 500 })
+      .withMessage("Ghi chú không được vượt quá 500 ký tự"),
+  ],
+};
+
 module.exports = {
   authValidators,
   categoryValidators,
@@ -308,4 +347,5 @@ module.exports = {
   favoriteValidators,
   termValidators,
   userValidators,
+  reportValidators,
 };

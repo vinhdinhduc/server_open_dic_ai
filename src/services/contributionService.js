@@ -2,6 +2,7 @@ const Contribution = require("../models/Contribution");
 const Term = require("../models/Term");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
+const emailService = require("./emailService");
 const {
   CONTRIBUTION_STATUS,
   TERM_STATUS,
@@ -14,10 +15,18 @@ exports.createContribution = async (userId, contributionData) => {
     contributor: userId,
     status: CONTRIBUTION_STATUS.PENDING,
   });
-  return newContribution;
 
-  // Gui thong bao den admin va kiểm duyệt đóng góp mới
-  //   const admins = await User.find({ role: "admin" });
+  // Lấy thông tin contributor và gửi email cho admin
+  const contributor = await User.findById(userId).select("fullName email");
+
+  // Gửi email thông báo cho admin (không chờ kết quả)
+  emailService
+    .sendNewContributionNotificationToAdmins(contributionData, contributor)
+    .catch((err) => {
+      console.error("Failed to send admin notification:", err);
+    });
+
+  return newContribution;
 };
 //Get list contribution
 
@@ -162,6 +171,26 @@ exports.approveContribution = async (
     relatedModel: "Term",
   });
 
+  // Lấy thông tin user và gửi email
+  const contributorInfo = await User.findById(contribution.contributor).select(
+    "fullName email",
+  );
+  if (contributorInfo) {
+    emailService
+      .sendContributionApprovedEmail(
+        contributorInfo.email,
+        contributorInfo.fullName,
+        {
+          type: contribution.type,
+          termName: contribution.term,
+          moderatorNote: moderatorNote,
+        },
+      )
+      .catch((err) => {
+        console.error("Failed to send approval email:", err);
+      });
+  }
+
   return { contribution, term };
 };
 //Từ chối đóng góp
@@ -214,6 +243,27 @@ exports.rejectContribution = async (
     relatedId: contribution._id,
     relatedModel: "Contribution",
   });
+
+  // Lấy thông tin user và gửi email
+  const contributorInfo = await User.findById(contribution.contributor).select(
+    "fullName email",
+  );
+  if (contributorInfo) {
+    emailService
+      .sendContributionRejectedEmail(
+        contributorInfo.email,
+        contributorInfo.fullName,
+        {
+          type: contribution.type,
+          termName: contribution.term,
+          moderatorNote: moderatorNote,
+        },
+      )
+      .catch((err) => {
+        console.error("Failed to send rejection email:", err);
+      });
+  }
+
   return contribution;
 };
 

@@ -48,6 +48,15 @@ module.exports = {
     REJECTED: "rejected",
   },
 
+  NOTIFICATION_TYPES: {
+    CONTRIBUTION_APPROVED: "contribution_approved",
+    CONTRIBUTION_REJECTED: "contribution_rejected",
+    COMMENT_REPLY: "comment_reply",
+    REPORT_RESOLVED: "report_resolved",
+    REPORT_REJECTED: "report_rejected",
+    SYSTEM: "system",
+  },
+
   MODERATION_PERMISSIONS: {
     SUGGESTIONS: "suggestions",
     CONTRIBUTIONS: "contributions",

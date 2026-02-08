@@ -1,69 +1,69 @@
 const Report = require("../models/Report");
 const Term = require("../models/Term");
-const Comment = require("../models/Comment");
 const Notification = require("../models/Notification");
+const User = require("../models/User");
+const emailService = require("./emailService");
 const {
   REPORT_STATUS,
   REPORT_TYPES,
   USER_ROLES,
+  NOTIFICATION_TYPES,
 } = require("../utils/constants");
 
 /**
- * Tạo báo xấu mới
+ * Tạo báo xấu mới (chỉ cho thuật ngữ)
  */
 exports.createReport = async (reportData, reporterId) => {
-  const { type, targetId, reason, description } = reportData;
+  const { targetId, reason, description } = reportData;
 
-  let category;
-  let targetTerm = null;
-  let targetComment = null;
-
-  if (type === REPORT_TYPES.TERM) {
-    const term = await Term.findById(targetId);
-    if (!term) {
-      const error = new Error("Không tìm thấy thuật ngữ");
-      error.statusCode = 404;
-      throw error;
-    }
-    category = term.category;
-    targetTerm = targetId;
-  } else if (type === REPORT_TYPES.COMMENT) {
-    const comment = await Comment.findById(targetId).populate("term");
-    if (!comment) {
-      const error = new Error("Không tìm thấy bình luận");
-      error.statusCode = 404;
-      throw error;
-    }
-    // Lấy category từ term của comment
-    const term = await Term.findById(comment.term);
-    category = term.category;
-    targetComment = targetId;
+  // Tìm thuật ngữ
+  const term = await Term.findById(targetId);
+  if (!term) {
+    const error = new Error("Không tìm thấy thuật ngữ");
+    error.statusCode = 404;
+    throw error;
   }
 
   // Kiểm tra đã báo xấu chưa
   const existingReport = await Report.findOne({
     reporter: reporterId,
-    ...(targetTerm && { targetTerm }),
-    ...(targetComment && { targetComment }),
+    targetTerm: targetId,
     status: REPORT_STATUS.PENDING,
   });
 
   if (existingReport) {
-    const error = new Error("Bạn đã báo xấu nội dung này rồi");
+    const error = new Error("Bạn đã báo xấu thuật ngữ này rồi");
     error.statusCode = 400;
     throw error;
   }
 
   const report = await Report.create({
-    type,
-    targetTerm,
-    targetComment,
-    category,
+    type: REPORT_TYPES.TERM,
+    targetTerm: targetId,
+    category: term.category,
     reason,
     description,
     reporter: reporterId,
     status: REPORT_STATUS.PENDING,
   });
+
+  // Lấy thông tin người báo cáo và gửi email cho admin
+  const reporter = await User.findById(reporterId).select("fullName email");
+
+  // Gửi email thông báo cho admin (không chờ kết quả)
+  emailService
+    .sendNewReportNotificationToAdmins(
+      {
+        contentType: "term",
+        reason: reason,
+        description: description,
+      },
+      reporter,
+      term,
+    )
+    .catch((err) => {
+      console.error("Failed to send report notification to admins:", err);
+    });
 
   return report;
 };
@@ -185,11 +185,30 @@ exports.resolveReport = async (reportId, moderatorId, resolveData) => {
   // Gửi thông báo cho người báo xấu
   await Notification.create({
     recipient: report.reporter,
-    type: "report_resolved",
+    type:
+      status === REPORT_STATUS.RESOLVED
+        ? NOTIFICATION_TYPES.REPORT_RESOLVED
+        : NOTIFICATION_TYPES.REPORT_REJECTED,
     title: "Báo xấu đã được xử lý",
     message: `Báo xấu của bạn đã được ${status === REPORT_STATUS.RESOLVED ? "chấp nhận" : "từ chối"}`,
-    relatedReport: reportId,
+    relatedId: reportId,
+    relatedModel: "Report",
   });
+
+  // Lấy thông tin người báo cáo và gửi email
+  const reporterInfo = await User.findById(report.reporter).select(
+    "fullName email",
+  );
+  if (reporterInfo) {
+    emailService
+      .sendReportResolvedEmail(reporterInfo.email, reporterInfo.fullName, {
+        status: status,
+        moderatorNote: moderatorNote,
+      })
+      .catch((err) => {
+        console.error("Failed to send report resolved email:", err);
+      });
+  }
 
   return report;
 };
