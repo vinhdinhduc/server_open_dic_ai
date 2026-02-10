@@ -12,12 +12,15 @@ exports.getAllComments = async (req, res, next) => {
     const { page, limit } = req.pagination || { page: 1, limit: 20 };
     const { status, search } = req.query;
 
-    const result = await commentService.getAllComments({
-      page,
-      limit,
-      status,
-      search,
-    });
+    const result = await commentService.getAllComments(
+      {
+        page,
+        limit,
+        status,
+        search,
+      },
+      req.user,
+    );
 
     return successResponse(res, "Lấy danh sách bình luận thành công", result);
   } catch (error) {
@@ -37,7 +40,7 @@ exports.createComment = async (req, res, next) => {
     const userId = req.user._id;
 
     const comment = await commentService.createComment(
-      { termId, content, parentComment },
+      { termId, content, parentCommentId: parentComment },
       userId,
     );
 

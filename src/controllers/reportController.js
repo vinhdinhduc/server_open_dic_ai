@@ -72,6 +72,7 @@ exports.resolveReport = async (req, res, next) => {
       id,
       moderatorId,
       resolveData,
+      req.user,
     );
 
     return successResponse(res, "Xử lý báo xấu thành công", report);

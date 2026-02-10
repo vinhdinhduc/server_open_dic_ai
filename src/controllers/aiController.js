@@ -80,6 +80,8 @@ const getAIStatus = async (req, res) => {
  */
 const getConfig = async (req, res) => {
   try {
+    console.log("calll");
+
     const config = await aiService.getAIConfig();
 
     // Ẩn một phần API key để bảo mật
@@ -90,6 +92,7 @@ const getConfig = async (req, res) => {
         : "",
       hasApiKey: !!config.apiKey,
     };
+    console.log("calll", maskedConfig);
 
     return successResponse(res, "Lấy cấu hình AI thành công", maskedConfig);
   } catch (error) {

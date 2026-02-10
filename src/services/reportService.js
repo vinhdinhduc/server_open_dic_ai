@@ -3,6 +3,7 @@ const Term = require("../models/Term");
 const Notification = require("../models/Notification");
 const User = require("../models/User");
 const emailService = require("./emailService");
+const notificationService = require("./notificationService");
 const {
   REPORT_STATUS,
   REPORT_TYPES,
@@ -63,6 +64,20 @@ exports.createReport = async (reportData, reporterId) => {
     )
     .catch((err) => {
       console.error("Failed to send report notification to admins:", err);
+    });
+
+  // Gửi thông báo in-app cho moderator/admin phụ trách danh mục
+  notificationService
+    .notifyModeratorsForCategory(term.category, {
+      type: NOTIFICATION_TYPES.REPORT_NEW,
+      title: "Báo xấu mới cần xử lý",
+      message: `Có báo xấu mới cho thuật ngữ "${term.term?.vi || ""}" - Lý do: ${reason}`,
+      relatedId: report._id,
+      relatedModel: "Report",
+      actionUrl: "/admin/moderation/reports",
+    })
+    .catch((err) => {
+      console.error("Failed to notify moderators about new report:", err);
     });
 
   return report;
@@ -158,7 +173,12 @@ exports.getReportById = async (reportId, user) => {
 /**
  * Xử lý báo xấu (resolve/reject)
  */
-exports.resolveReport = async (reportId, moderatorId, resolveData) => {
+exports.resolveReport = async (
+  reportId,
+  moderatorId,
+  resolveData,
+  user = null,
+) => {
   const { status, moderatorNote, actionTaken } = resolveData;
 
   const report = await Report.findById(reportId);
@@ -166,6 +186,23 @@ exports.resolveReport = async (reportId, moderatorId, resolveData) => {
     const error = new Error("Không tìm thấy báo xấu");
     error.statusCode = 404;
     throw error;
+  }
+
+  // Kiểm tra quyền category cho moderator
+  if (user && user.role === USER_ROLES.MODERATOR) {
+    const allowedCategories = user.moderationPermissions?.categories || [];
+    const isAllowed = allowedCategories.some(
+      (cat) =>
+        cat.toString() ===
+        (report.category?._id || report.category)?.toString(),
+    );
+    if (!isAllowed) {
+      const error = new Error(
+        "Bạn không có quyền xử lý báo xấu trong danh mục này",
+      );
+      error.statusCode = 403;
+      throw error;
+    }
   }
 
   if (report.status !== REPORT_STATUS.PENDING) {
@@ -190,9 +227,10 @@ exports.resolveReport = async (reportId, moderatorId, resolveData) => {
         ? NOTIFICATION_TYPES.REPORT_RESOLVED
         : NOTIFICATION_TYPES.REPORT_REJECTED,
     title: "Báo xấu đã được xử lý",
-    message: `Báo xấu của bạn đã được ${status === REPORT_STATUS.RESOLVED ? "chấp nhận" : "từ chối"}`,
+    message: `Báo xấu của bạn đã được ${status === REPORT_STATUS.RESOLVED ? "chấp nhận" : "từ chối"}.${moderatorNote ? " Ghi chú: " + moderatorNote : ""}`,
     relatedId: reportId,
     relatedModel: "Report",
+    actionUrl: report.targetTerm ? `/terms/${report.targetTerm}` : null,
   });
 
   // Lấy thông tin người báo cáo và gửi email

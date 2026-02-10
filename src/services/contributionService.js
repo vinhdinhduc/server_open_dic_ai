@@ -3,10 +3,12 @@ const Term = require("../models/Term");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 const emailService = require("./emailService");
+const notificationService = require("./notificationService");
 const {
   CONTRIBUTION_STATUS,
   TERM_STATUS,
   USER_ROLES,
+  NOTIFICATION_TYPES,
 } = require("../utils/constants");
 //Tạo đóng góp thuật ngữ mới
 exports.createContribution = async (userId, contributionData) => {
@@ -24,6 +26,20 @@ exports.createContribution = async (userId, contributionData) => {
     .sendNewContributionNotificationToAdmins(contributionData, contributor)
     .catch((err) => {
       console.error("Failed to send admin notification:", err);
+    });
+
+  // Gửi thông báo in-app cho moderator/admin phụ trách danh mục
+  notificationService
+    .notifyModeratorsForCategory(contributionData.category, {
+      type: NOTIFICATION_TYPES.CONTRIBUTION_NEW,
+      title: "Đóng góp mới cần kiểm duyệt",
+      message: `Có đóng góp mới từ "${contributor?.fullName || "Người dùng"}" - ${contributionData.type === "new_term" ? "Thêm từ mới" : "Gợi ý sửa từ"}: "${contributionData.term?.vi || ""}"`,
+      relatedId: newContribution._id,
+      relatedModel: "Contribution",
+      actionUrl: "/admin/moderation/contributions",
+    })
+    .catch((err) => {
+      console.error("Failed to notify moderators about new contribution:", err);
     });
 
   return newContribution;
@@ -165,11 +181,12 @@ exports.approveContribution = async (
 
   await Notification.create({
     recipient: contribution.contributor,
-    type: "contribution_approved",
+    type: NOTIFICATION_TYPES.CONTRIBUTION_APPROVED,
     title: "Đóng góp được phê duyệt",
-    message: `Đóng góp của bạn về thuật ngữ "${contribution.term}" đã được phê duyệt.`,
+    message: `Đóng góp của bạn về thuật ngữ "${contribution.term?.vi || ""}" đã được phê duyệt.${moderatorNote ? " Ghi chú: " + moderatorNote : ""}`,
     relatedId: term._id,
     relatedModel: "Term",
+    actionUrl: `/terms/${term._id}`,
   });
 
   // Lấy thông tin user và gửi email
@@ -238,11 +255,12 @@ exports.rejectContribution = async (
   //Send thông báo cho kiểm duyệt viên và admin
   await Notification.create({
     recipient: contribution.contributor,
-    type: "contribution_rejected",
+    type: NOTIFICATION_TYPES.CONTRIBUTION_REJECTED,
     title: "Đóng góp bị từ chối",
-    message: `Đóng góp của bạn về thuật ngữ "${contribution.term}" đã bị từ chối. Lý do: ${moderatorNote}`,
+    message: `Đóng góp của bạn về thuật ngữ "${contribution.term?.vi || ""}" đã bị từ chối. Lý do: ${moderatorNote}`,
     relatedId: contribution._id,
     relatedModel: "Contribution",
+    actionUrl: `/contribute`,
   });
 
   // Lấy thông tin user và gửi email

@@ -9,14 +9,13 @@ const getAIConfig = async () => {
   const apiKey = await SystemConfig.getValue("ai_api_key", "");
   const provider = await SystemConfig.getValue("ai_provider", "gemini");
   const model = await SystemConfig.getValue("ai_model", "gemini-2.5-flash");
-  const temperature = await SystemConfig.getValue("ai_temperature", 0.7);
   const maxTokens = await SystemConfig.getValue("ai_max_tokens", 8192);
+  console.log(apiKey, provider, model, maxTokens);
 
   return {
     apiKey,
     provider,
     model,
-    temperature,
     maxTokens,
   };
 };
@@ -35,7 +34,6 @@ const askAboutTerm = async (term, language = "vi", userId) => {
     console.log("📝 AI Config:", {
       provider: config.provider,
       model: config.model,
-      temperature: config.temperature,
       maxTokens: config.maxTokens,
       hasApiKey: !!config.apiKey,
     });
@@ -93,9 +91,7 @@ const callGeminiAPI = async (prompt, config) => {
     }
 
     console.log(`🤖 Calling Gemini API with model: ${modelName}`);
-    console.log(
-      `📊 Config: maxTokens=${config.maxTokens}, temp=${config.temperature}`,
-    );
+    console.log(`📊 Config: maxTokens=${config.maxTokens}`);
 
     // Prepare generation config
     const generationConfig = {
@@ -515,6 +511,7 @@ const testConnection = async () => {
 };
 
 module.exports = {
+  getAIConfig,
   askAboutTerm,
   getChatHistory,
   getStatus,

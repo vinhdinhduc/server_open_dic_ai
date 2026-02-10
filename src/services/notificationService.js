@@ -1,4 +1,6 @@
 const Notification = require("../models/Notification");
+const User = require("../models/User");
+const { USER_ROLES } = require("../utils/constants");
 
 /**
  * Lấy danh sách thông báo của user
@@ -93,4 +95,77 @@ exports.deleteNotification = async (userId, notificationId) => {
 exports.createNotification = async (notificationData) => {
   const notification = await Notification.create(notificationData);
   return notification;
+};
+
+/**
+ * Lấy số thông báo chưa đọc
+ */
+exports.getUnreadCount = async (userId) => {
+  const count = await Notification.countDocuments({
+    recipient: userId,
+    isRead: false,
+  });
+  return count;
+};
+
+/**
+ * Gửi thông báo cho tất cả admin
+ */
+exports.notifyAdmins = async (notificationData) => {
+  try {
+    const admins = await User.find({
+      role: USER_ROLES.ADMIN,
+      status: "active",
+    }).select("_id");
+
+    const notifications = admins.map((admin) => ({
+      ...notificationData,
+      recipient: admin._id,
+    }));
+
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications);
+    }
+    return notifications.length;
+  } catch (error) {
+    console.error("Error notifying admins:", error);
+    return 0;
+  }
+};
+
+/**
+ * Gửi thông báo cho moderator có quyền trong danh mục cụ thể
+ */
+exports.notifyModeratorsForCategory = async (categoryId, notificationData) => {
+  try {
+    // Tìm moderators được gán cho danh mục này
+    const moderators = await User.find({
+      role: USER_ROLES.MODERATOR,
+      status: "active",
+      "moderationPermissions.categories": categoryId,
+    }).select("_id");
+
+    // Cũng gửi cho tất cả admin
+    const admins = await User.find({
+      role: USER_ROLES.ADMIN,
+      status: "active",
+    }).select("_id");
+
+    const allRecipients = [...moderators, ...admins];
+    // Loại bỏ trùng lặp
+    const uniqueIds = [...new Set(allRecipients.map((u) => u._id.toString()))];
+
+    const notifications = uniqueIds.map((recipientId) => ({
+      ...notificationData,
+      recipient: recipientId,
+    }));
+
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications);
+    }
+    return notifications.length;
+  } catch (error) {
+    console.error("Error notifying moderators for category:", error);
+    return 0;
+  }
 };

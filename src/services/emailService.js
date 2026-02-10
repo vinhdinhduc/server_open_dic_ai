@@ -334,6 +334,129 @@ exports.testEmailConfiguration = async () => {
 };
 
 /**
+ * Gửi email thông báo khi bình luận được kiểm duyệt
+ */
+exports.sendCommentModeratedEmail = async (
+  userEmail,
+  userName,
+  commentData,
+) => {
+  try {
+    const transporter = await getEmailTransporter();
+    const emailFrom = await SystemConfig.getValue(
+      "email_from",
+      process.env.EMAIL_FROM,
+    );
+
+    const isApproved = commentData.status === "approved";
+    const statusText = isApproved ? "được duyệt" : "bị từ chối";
+    const statusColor = isApproved ? "#4CAF50" : "#FF9800";
+
+    const mailOptions = {
+      from: emailFrom,
+      to: userEmail,
+      subject: `Bình luận của bạn đã ${statusText}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: ${statusColor};">Xin chào ${userName},</h2>
+          <p>Bình luận của bạn đã ${statusText}.</p>
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid ${statusColor};">
+            <h3 style="margin-top: 0;">Thông tin bình luận:</h3>
+            <p><strong>Thuật ngữ:</strong> ${commentData.termName}</p>
+            <p><strong>Nội dung:</strong> ${commentData.commentContent ? commentData.commentContent.substring(0, 200) : ""}${commentData.commentContent && commentData.commentContent.length > 200 ? "..." : ""}</p>
+            <p><strong>Trạng thái:</strong> ${isApproved ? "Đã duyệt" : "Bị từ chối"}</p>
+            ${commentData.moderatorNote ? `<p><strong>Ghi chú:</strong> ${commentData.moderatorNote}</p>` : ""}
+          </div>
+          ${!isApproved ? "<p>Bạn có thể xem lại và chỉnh sửa nội dung bình luận cho phù hợp hơn.</p>" : "<p>Cảm ơn bạn đã đóng góp cho cộng đồng!</p>"}
+          <p style="margin-top: 30px;">Trân trọng,<br/>Đội ngũ Từ điển Mở</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Comment moderation email sent to ${userEmail}`);
+  } catch (error) {
+    console.error("Error sending comment moderation email:", error);
+  }
+};
+
+/**
+ * Gửi email thông báo cho moderator khi có nội dung mới cần kiểm duyệt
+ */
+exports.sendNewContentNotificationToModerators = async (
+  contentType,
+  contentData,
+  contributor,
+  categoryId,
+) => {
+  try {
+    const User = require("../models/User");
+
+    // Tìm moderators được gán cho danh mục
+    const moderators = await User.find({
+      role: "moderator",
+      status: "active",
+      "moderationPermissions.categories": categoryId,
+    }).select("email fullName");
+
+    // Cũng gửi cho admin
+    const admins = await User.find({
+      role: "admin",
+      status: "active",
+    }).select("email fullName");
+
+    const allRecipients = [...moderators, ...admins];
+
+    if (allRecipients.length === 0) {
+      console.log("No moderators/admins to notify");
+      return;
+    }
+
+    const contentTypeLabels = {
+      contribution: "Đóng góp",
+      comment: "Bình luận",
+      report: "Báo xấu",
+    };
+
+    const transporter = await getEmailTransporter();
+    const emailFrom = await SystemConfig.getValue(
+      "email_from",
+      process.env.EMAIL_FROM,
+    );
+
+    for (const recipient of allRecipients) {
+      const mailOptions = {
+        from: emailFrom,
+        to: recipient.email,
+        subject: `${contentTypeLabels[contentType] || "Nội dung"} mới cần kiểm duyệt`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2196F3;">${contentTypeLabels[contentType] || "Nội dung"} mới cần kiểm duyệt</h2>
+            <p>Xin chào ${recipient.fullName},</p>
+            <p>Có ${contentTypeLabels[contentType]?.toLowerCase() || "nội dung"} mới từ người dùng <strong>${contributor?.fullName || "Ẩn danh"}</strong> cần được kiểm duyệt.</p>
+            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #2196F3;">
+              ${contentData.termName ? `<p><strong>Thuật ngữ:</strong> ${contentData.termName}</p>` : ""}
+              ${contentData.content ? `<p><strong>Nội dung:</strong> ${contentData.content.substring(0, 200)}...</p>` : ""}
+              ${contentData.reason ? `<p><strong>Lý do:</strong> ${contentData.reason}</p>` : ""}
+            </div>
+            <p>Vui lòng đăng nhập vào hệ thống để kiểm duyệt.</p>
+            <p style="margin-top: 30px;">Trân trọng,<br/>Hệ thống Từ điển Mở</p>
+          </div>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+    }
+
+    console.log(
+      `New ${contentType} notification sent to ${allRecipients.length} recipients`,
+    );
+  } catch (error) {
+    console.error(`Error sending ${contentType} notification:`, error);
+  }
+};
+
+/**
  * Gửi email đặt lại mật khẩu
  */
 exports.sendPasswordResetEmail = async (userEmail, userName, resetUrl) => {

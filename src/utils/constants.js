@@ -51,9 +51,12 @@ module.exports = {
   NOTIFICATION_TYPES: {
     CONTRIBUTION_APPROVED: "contribution_approved",
     CONTRIBUTION_REJECTED: "contribution_rejected",
+    CONTRIBUTION_NEW: "contribution_new",
     COMMENT_REPLY: "comment_reply",
+    COMMENT_MODERATED: "comment_moderated",
     REPORT_RESOLVED: "report_resolved",
     REPORT_REJECTED: "report_rejected",
+    REPORT_NEW: "report_new",
     SYSTEM: "system",
   },
 
