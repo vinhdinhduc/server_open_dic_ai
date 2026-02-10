@@ -77,8 +77,9 @@ exports.getUserById = async (userId) => {
     const error = new Error("Người dùng không tồn tại");
     error.statusCode = 404;
     throw error;
-    return user;
   }
+
+  return user;
 };
 
 // Cập nhật thông tin người dùng

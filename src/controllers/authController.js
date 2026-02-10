@@ -99,3 +99,53 @@ exports.logout = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Gửi email đặt lại mật khẩu
+ * @access  Public
+ */
+exports.forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const result = await authService.forgotPassword(email);
+    return successResponse(res, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   POST /api/auth/reset-password
+ * @desc    Đặt lại mật khẩu bằng token
+ * @access  Public
+ */
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+    const result = await authService.resetPassword(token, password);
+    return successResponse(res, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   POST /api/auth/google
+ * @desc    Đăng nhập bằng Google
+ * @access  Public
+ */
+exports.googleLogin = async (req, res, next) => {
+  try {
+    const { googleId, email, fullName, avatar } = req.body;
+    const result = await authService.googleLogin({
+      googleId,
+      email,
+      fullName,
+      avatar,
+    });
+    return successResponse(res, "Đăng nhập Google thành công", result);
+  } catch (error) {
+    next(error);
+  }
+};

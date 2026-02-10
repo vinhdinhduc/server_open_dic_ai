@@ -45,4 +45,25 @@ router.put(
   authController.updateProfile,
 );
 
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Gửi email đặt lại mật khẩu
+ * @access  Public
+ */
+router.post("/forgot-password", authController.forgotPassword);
+
+/**
+ * @route   POST /api/auth/reset-password
+ * @desc    Đặt lại mật khẩu bằng token
+ * @access  Public
+ */
+router.post("/reset-password", authController.resetPassword);
+
+/**
+ * @route   POST /api/auth/google
+ * @desc    Đăng nhập bằng Google
+ * @access  Public
+ */
+router.post("/google", authController.googleLogin);
+
 module.exports = router;

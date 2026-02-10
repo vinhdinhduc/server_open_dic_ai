@@ -14,7 +14,9 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Mật khẩu là bắt buộc"],
+      required: function () {
+        return this.authProvider !== "google";
+      },
       minLength: [6, "Mật khẩu phải có ít nhất 6 ký tự"],
       select: false,
     },
@@ -62,6 +64,21 @@ const userSchema = new mongoose.Schema(
           enum: Object.values(MODERATION_PERMISSIONS),
         },
       ],
+    },
+    // Forgot password
+    resetPasswordToken: String,
+    resetPasswordExpires: Date,
+    // Google OAuth
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    avatar: String,
+    authProvider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
     },
   },
   { timestamps: true },

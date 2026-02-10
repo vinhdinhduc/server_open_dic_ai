@@ -1,11 +1,23 @@
 const express = require("express");
 const categoryController = require("../controllers/categoryController");
 const { authenticate } = require("../middlewares/auth");
-const { isAdmin } = require("../middlewares/authorize");
+const { isAdmin, isModerator } = require("../middlewares/authorize");
 const { validate, validateObjectId } = require("../middlewares/validate");
 const { categoryValidators } = require("../validators");
 
 const router = express.Router();
+
+/**
+ * @route   GET /api/categories/moderator/my-categories
+ * @desc    Lấy danh mục phụ trách cho moderator kèm stats
+ * @access  Private - Moderator/Admin
+ */
+router.get(
+  "/moderator/my-categories",
+  authenticate,
+  isModerator,
+  categoryController.getModeratorCategories,
+);
 
 /**
  * @route   GET /api/categories

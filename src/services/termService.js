@@ -260,6 +260,51 @@ exports.saveSearchHistory = async (userId, query, resultCount) => {
   });
 };
 
+// Lấy lịch sử tìm kiếm của user
+exports.getSearchHistory = async (userId, options = {}) => {
+  const { page = 1, limit = 20 } = options;
+  const skip = (page - 1) * limit;
+
+  const [history, total] = await Promise.all([
+    SearchHistory.find({ user: userId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    SearchHistory.countDocuments({ user: userId }),
+  ]);
+
+  return {
+    history,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+    },
+  };
+};
+
+// Xóa một mục lịch sử tìm kiếm
+exports.deleteSearchHistory = async (userId, historyId) => {
+  const result = await SearchHistory.findOneAndDelete({
+    _id: historyId,
+    user: userId,
+  });
+  if (!result) {
+    const error = new Error("Không tìm thấy lịch sử tìm kiếm");
+    error.statusCode = 404;
+    throw error;
+  }
+  return { message: "Đã xoá lịch sử tìm kiếm" };
+};
+
+// Xóa toàn bộ lịch sử tìm kiếm của user
+exports.clearSearchHistory = async (userId) => {
+  await SearchHistory.deleteMany({ user: userId });
+  return { message: "Đã xoá toàn bộ lịch sử tìm kiếm" };
+};
+
 //Lấy gợi ý tìm kiếm
 
 exports.getSuggestions = async (query, language = "vi", limit = 10) => {

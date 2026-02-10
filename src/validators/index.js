@@ -144,10 +144,12 @@ const contributionValidators = {
       .isIn(["new_term", "edit_term"])
       .withMessage("Loại đóng góp không hợp lệ"),
     body("term.vi")
+      .optional({ checkFalsy: false })
       .trim()
       .notEmpty()
       .withMessage("Thuật ngữ tiếng Việt là bắt buộc"),
     body("definition.vi")
+      .optional({ checkFalsy: false })
       .trim()
       .notEmpty()
       .withMessage("Định nghĩa tiếng Việt là bắt buộc"),

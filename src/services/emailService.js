@@ -332,3 +332,100 @@ exports.testEmailConfiguration = async () => {
     return { success: false, message: error.message };
   }
 };
+
+/**
+ * Gửi email đặt lại mật khẩu
+ */
+exports.sendPasswordResetEmail = async (userEmail, userName, resetUrl) => {
+  try {
+    const transporter = await getEmailTransporter();
+    const emailFrom = await SystemConfig.getValue(
+      "email_from",
+      process.env.EMAIL_FROM,
+    );
+
+    const mailOptions = {
+      from: emailFrom,
+      to: userEmail,
+      subject: "Đặt lại mật khẩu - Từ điển Mở",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #667eea;">Đặt lại mật khẩu</h2>
+          <p>Xin chào ${userName},</p>
+          <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
+          <p>Nhấn vào nút bên dưới để đặt lại mật khẩu:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+              Đặt lại mật khẩu
+            </a>
+          </div>
+          <p style="color: #666; font-size: 14px;">Link này sẽ hết hạn sau 30 phút.</p>
+          <p style="color: #666; font-size: 14px;">Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+          <p style="color: #999; font-size: 12px;">Email này được gửi tự động từ hệ thống Từ điển Mở.</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Password reset email sent to ${userEmail}`);
+  } catch (error) {
+    console.error("Error sending password reset email:", error);
+    throw new Error(
+      "Không thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.",
+    );
+  }
+};
+
+/**
+ * Gửi email thông báo import dữ liệu thành công cho Admin
+ */
+exports.sendImportNotificationEmail = async (
+  adminEmail,
+  adminName,
+  importData,
+) => {
+  try {
+    const transporter = await getEmailTransporter();
+    const emailFrom = await SystemConfig.getValue(
+      "email_from",
+      process.env.EMAIL_FROM,
+    );
+
+    const mailOptions = {
+      from: emailFrom,
+      to: adminEmail,
+      subject: "Kết quả nhập dữ liệu - Từ điển Mở",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #667eea;">Kết quả nhập dữ liệu</h2>
+          <p>Xin chào ${adminName},</p>
+          <p>Quá trình nhập dữ liệu đã hoàn tất với kết quả:</p>
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>File:</strong> ${importData.fileName}</p>
+            <p><strong>Tổng số bản ghi:</strong> ${importData.total}</p>
+            <p style="color: #10b981;"><strong>Thành công:</strong> ${importData.success}</p>
+            <p style="color: #ef4444;"><strong>Thất bại:</strong> ${importData.failed}</p>
+            ${
+              importData.errors && importData.errors.length > 0
+                ? `<div style="margin-top: 10px;">
+                <strong>Lỗi:</strong>
+                <ul>${importData.errors
+                  .slice(0, 5)
+                  .map((e) => `<li>${e}</li>`)
+                  .join("")}</ul>
+              </div>`
+                : ""
+            }
+          </div>
+          <p style="margin-top: 30px;">Trân trọng,<br/>Hệ thống Từ điển Mở</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Import notification email sent to ${adminEmail}`);
+  } catch (error) {
+    console.error("Error sending import notification email:", error);
+  }
+};

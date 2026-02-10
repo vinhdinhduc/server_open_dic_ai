@@ -47,12 +47,13 @@ exports.getContribution = async (filter = {}, options = {}, user = null) => {
     query.category = { $in: allowedCategories };
   }
 
+  if (options.userId) query.contributor = options.userId;
   if (status) query.status = status;
   if (category) query.category = category;
-  if (contributor) query.contribution = contributor;
+  if (contributor) query.contributor = contributor;
 
   const [contributions, total] = await Promise.all([
-    await Contribution.find(query)
+    Contribution.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)

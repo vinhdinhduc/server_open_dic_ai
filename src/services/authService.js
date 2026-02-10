@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const User = require("../models/User");
 const emailService = require("./emailService");
 
@@ -31,12 +32,14 @@ exports.register = async ({ fullName, email, password }) => {
   //Send verification email (gửi email chào mừng)
   newUser.lastLogin = Date.now();
   await newUser.save();
-  
+
   // Gửi email chào mừng (không chờ kết quả)
-  emailService.sendWelcomeEmail(newUser.email, newUser.fullName).catch(err => {
-    console.error("Failed to send welcome email:", err);
-  });
-  
+  emailService
+    .sendWelcomeEmail(newUser.email, newUser.fullName)
+    .catch((err) => {
+      console.error("Failed to send welcome email:", err);
+    });
+
   // Gen token
 
   const token = generateToken(newUser._id);
@@ -179,5 +182,134 @@ exports.getProfile = async (userId) => {
     emailVerified: user.emailVerified,
     createdAt: user.createdAt,
     lastLogin: user.lastLogin,
+  };
+};
+
+/**
+ * Quên mật khẩu - gửi email reset
+ */
+exports.forgotPassword = async (email) => {
+  const user = await User.findOne({ email });
+  if (!user) {
+    const error = new Error("Email không tồn tại trong hệ thống");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (user.authProvider === "google") {
+    const error = new Error(
+      "Tài khoản này đăng nhập bằng Google, không thể đặt lại mật khẩu",
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Tạo reset token
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  user.resetPasswordToken = hashedToken;
+  user.resetPasswordExpires = Date.now() + 30 * 60 * 1000; // 30 phút
+  await user.save();
+
+  // Gửi email
+  const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
+  await emailService.sendPasswordResetEmail(
+    user.email,
+    user.fullName,
+    resetUrl,
+  );
+
+  return { message: "Email đặt lại mật khẩu đã được gửi" };
+};
+
+/**
+ * Đặt lại mật khẩu
+ */
+exports.resetPassword = async (token, newPassword) => {
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  const user = await User.findOne({
+    resetPasswordToken: hashedToken,
+    resetPasswordExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    const error = new Error(
+      "Token không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu lại",
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  user.password = newPassword;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpires = undefined;
+  await user.save();
+
+  return { message: "Đặt lại mật khẩu thành công" };
+};
+
+/**
+ * Đăng nhập bằng Google
+ */
+exports.googleLogin = async (googleData) => {
+  const { googleId, email, fullName, avatar } = googleData;
+
+  // Tìm user bằng googleId hoặc email
+  let user = await User.findOne({
+    $or: [{ googleId }, { email }],
+  });
+
+  if (user) {
+    // User tồn tại
+    if (user.status === "banned") {
+      const error = new Error("Tài khoản của bạn đã bị khóa");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    // Cập nhật googleId nếu chưa có (user đã đăng ký bằng email trước đó)
+    if (!user.googleId) {
+      user.googleId = googleId;
+      user.authProvider = "google";
+    }
+    if (avatar && !user.avatar) {
+      user.avatar = avatar;
+    }
+    user.emailVerified = true;
+    user.lastLogin = Date.now();
+    await user.save();
+  } else {
+    // Tạo user mới
+    user = await User.create({
+      googleId,
+      email,
+      fullName,
+      avatar,
+      authProvider: "google",
+      emailVerified: true,
+      status: "active",
+      lastLogin: Date.now(),
+    });
+  }
+
+  const token = generateToken(user._id);
+
+  return {
+    user: {
+      id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar,
+      preferredLanguage: user.preferredLanguage,
+      status: user.status,
+      contributionCount: user.contributionCount,
+    },
+    accessToken: token,
   };
 };

@@ -1,5 +1,9 @@
 const { successResponse } = require("../utils/response");
 const categoryService = require("../services/categoryService");
+const Category = require("../models/Category");
+const Contribution = require("../models/Contribution");
+const Term = require("../models/Term");
+const Report = require("../models/Report");
 
 /**
  * @route   GET /api/categories
@@ -89,6 +93,72 @@ exports.deleteCategory = async (req, res, next) => {
     const result = await categoryService.deleteCategory(id);
 
     return successResponse(res, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   GET /api/categories/moderator/my-categories
+ * @desc    Lấy danh mục được phân quyền cho moderator kèm stats
+ * @access  Private - Moderator/Admin
+ */
+exports.getModeratorCategories = async (req, res, next) => {
+  try {
+    const user = req.user;
+    let categoryIds;
+
+    if (user.role === "admin") {
+      // Admin thấy tất cả
+      const allCategories = await Category.find({}).lean();
+      categoryIds = allCategories.map((c) => c._id);
+    } else {
+      // Moderator chỉ thấy danh mục được gán
+      categoryIds = user.moderationPermissions?.categories || [];
+    }
+
+    if (categoryIds.length === 0) {
+      return successResponse(res, "Bạn chưa được phân quyền danh mục nào", []);
+    }
+
+    // Lấy categories kèm thống kê
+    const categories = await Category.find({
+      _id: { $in: categoryIds },
+    }).lean();
+
+    // Lấy thống kê cho từng danh mục
+    const categoriesWithStats = await Promise.all(
+      categories.map(async (category) => {
+        const [termCount, pendingContributions, pendingReports] =
+          await Promise.all([
+            Term.countDocuments({ category: category._id, status: "approved" }),
+            Contribution.countDocuments({
+              category: category._id,
+              status: "pending",
+            }),
+            Report.countDocuments({
+              category: category._id,
+              status: "pending",
+            }).catch(() => 0),
+          ]);
+
+        return {
+          ...category,
+          stats: {
+            termCount,
+            pendingContributions,
+            pendingReports,
+            totalPending: pendingContributions + pendingReports,
+          },
+        };
+      }),
+    );
+
+    return successResponse(
+      res,
+      "Lấy danh mục phụ trách thành công",
+      categoriesWithStats,
+    );
   } catch (error) {
     next(error);
   }

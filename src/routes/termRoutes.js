@@ -1,13 +1,35 @@
 const express = require("express");
+const multer = require("multer");
+const path = require("path");
 const termController = require("../controllers/termController");
 const { authenticate, optionalAuth } = require("../middlewares/auth");
-const { isModerator } = require("../middlewares/authorize");
+const { isModerator, isAdmin } = require("../middlewares/authorize");
 const {
   validate,
   validatePagination,
   validateObjectId,
 } = require("../middlewares/validate");
 const { termValidators } = require("../validators");
+
+// Configure multer for file uploads
+const upload = multer({
+  dest: path.join(__dirname, "../../uploads/"),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "text/csv",
+    ];
+    const allowedExts = [".xlsx", ".xls", ".csv"];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(file.mimetype) || allowedExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Chỉ hỗ trợ file Excel (.xlsx, .xls) và CSV (.csv)"));
+    }
+  },
+});
 
 const router = express.Router();
 
@@ -55,6 +77,54 @@ router.get(
   isModerator,
   validatePagination,
   termController.getTermsForAdmin,
+);
+
+/**
+ * @route   POST /api/terms/import
+ * @desc    Nhập thuật ngữ từ file Excel/CSV
+ * @access  Private - Admin
+ */
+router.post(
+  "/import",
+  authenticate,
+  isAdmin,
+  upload.single("file"),
+  termController.importTerms,
+);
+
+/**
+ * @route   GET /api/terms/search-history
+ * @desc    Lấy lịch sử tìm kiếm
+ * @access  Private
+ */
+router.get(
+  "/search-history",
+  authenticate,
+  validatePagination,
+  termController.getSearchHistory,
+);
+
+/**
+ * @route   DELETE /api/terms/search-history/all
+ * @desc    Xóa toàn bộ lịch sử tìm kiếm
+ * @access  Private
+ */
+router.delete(
+  "/search-history/all",
+  authenticate,
+  termController.clearSearchHistory,
+);
+
+/**
+ * @route   DELETE /api/terms/search-history/:id
+ * @desc    Xóa một mục lịch sử tìm kiếm
+ * @access  Private
+ */
+router.delete(
+  "/search-history/:id",
+  authenticate,
+  validateObjectId("id"),
+  termController.deleteSearchHistory,
 );
 
 /**

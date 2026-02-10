@@ -1,6 +1,7 @@
 const { successResponse, errorResponse } = require("../utils/response");
 const termService = require("../services/termService");
 const exportService = require("../services/exportService");
+const importService = require("../services/importService");
 
 exports.searchTerms = async (req, res, next) => {
   try {
@@ -157,6 +158,63 @@ exports.exportTerms = async (req, res, next) => {
 
     // Send buffer
     return res.send(result.buffer);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Import terms from Excel/CSV
+exports.importTerms = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return errorResponse(res, "Vui lòng chọn file để nhập", 400);
+    }
+
+    const { category } = req.body;
+    const userId = req.user._id;
+
+    const result = await importService.importFromFile(
+      req.file,
+      userId,
+      category,
+    );
+
+    return successResponse(res, "Nhập dữ liệu hoàn tất", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Lấy lịch sử tìm kiếm
+exports.getSearchHistory = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { page, limit } = req.pagination;
+    const result = await termService.getSearchHistory(userId, { page, limit });
+    return successResponse(res, "Lấy lịch sử tìm kiếm thành công", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Xóa một mục lịch sử
+exports.deleteSearchHistory = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+    const result = await termService.deleteSearchHistory(userId, id);
+    return successResponse(res, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Xóa toàn bộ lịch sử
+exports.clearSearchHistory = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const result = await termService.clearSearchHistory(userId);
+    return successResponse(res, result.message);
   } catch (error) {
     next(error);
   }
