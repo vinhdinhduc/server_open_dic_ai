@@ -46,7 +46,10 @@ exports.searchTerms = async (query, options = {}) => {
       .limit(limit)
       .populate("category", "name slug")
       .populate("createdBy", "fullName")
-      .select("term definition category viewCount favoriteCount createdAt"),
+      .populate("relatedTerms", "term definition")
+      .select(
+        "term definition category viewCount favoriteCount createdAt relatedTerms",
+      ),
     Term.countDocuments(searchQuery),
   ]);
 
@@ -253,11 +256,12 @@ exports.deleteTerm = async (termId) => {
 
 exports.saveSearchHistory = async (userId, query, resultCount) => {
   if (!userId) return;
-  await SearchHistory.create({
+  const result = await SearchHistory.create({
     user: userId,
     query,
     resultCount,
   });
+  return result;
 };
 
 // Lấy lịch sử tìm kiếm của user

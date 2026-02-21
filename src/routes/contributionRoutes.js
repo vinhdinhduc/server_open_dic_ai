@@ -9,6 +9,7 @@ const {
 } = require("../middlewares/validate");
 const { contributionValidators } = require("../validators");
 const { MODERATION_PERMISSIONS } = require("../utils/constants");
+const { contentCreationLimiter } = require("../middlewares/rateLimiter");
 
 const router = express.Router();
 
@@ -20,6 +21,7 @@ const router = express.Router();
 router.post(
   "/",
   authenticate,
+  contentCreationLimiter,
   contributionValidators.create,
   validate,
   contributionController.createContribution,
@@ -34,7 +36,7 @@ router.get(
   "/",
   authenticate,
   validatePagination,
-  contributionController.getMyContribution, // Sửa từ getContributions -> getMyContribution
+  contributionController.getMyContribution,
 );
 
 /**

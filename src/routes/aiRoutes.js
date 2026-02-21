@@ -3,11 +3,17 @@ const router = express.Router();
 const aiController = require("../controllers/aiController");
 const auth = require("../middlewares/auth");
 const { isAdmin } = require("../middlewares/authorize");
+const { aiLimiter } = require("../middlewares/rateLimiter");
 
 // @route   POST /api/ai/ask
 // @desc    Hỏi AI về thuật ngữ
 // @access  Private
-router.post("/ask", auth.authenticate, aiController.askAboutTerm);
+router.post(
+  "/ask",
+  auth.authenticate,
+  aiLimiter, // Giới hạn 5 AI requests/phút
+  aiController.askAboutTerm,
+);
 
 // @route   GET /api/ai/history
 // @desc    Lấy lịch sử chat AI

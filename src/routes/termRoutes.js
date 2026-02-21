@@ -93,6 +93,17 @@ router.post(
 );
 
 /**
+ * @route   POST /api/terms/search-history
+ * @desc    Lưu lịch sử tìm kiếm
+ * @access  Private
+ */
+router.post(
+  "/search-history",
+  authenticate,
+  termController.saveSearchHistoryEndpoint,
+);
+
+/**
  * @route   GET /api/terms/search-history
  * @desc    Lấy lịch sử tìm kiếm
  * @access  Private

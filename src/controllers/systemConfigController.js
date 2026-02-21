@@ -1,6 +1,10 @@
 const { successResponse } = require("../utils/response");
 const SystemConfig = require("../models/SystemConfig");
 const { maskSensitiveData, shouldEncrypt } = require("../utils/encryption");
+const {
+  loadRateLimitConfig,
+  getCurrentConfig,
+} = require("../middlewares/rateLimiter");
 
 /**
  * Mask sensitive values in config for safe response
@@ -146,6 +150,11 @@ exports.updateConfigsBulk = async (req, res, next) => {
       results.push(maskConfigValue(config));
     }
 
+    // Nếu category là security, reload rate limit config
+    if (category === "security") {
+      await loadRateLimitConfig();
+    }
+
     return successResponse(res, "Cập nhật cấu hình thành công", results);
   } catch (error) {
     next(error);
@@ -160,6 +169,7 @@ exports.updateConfigsBulk = async (req, res, next) => {
 exports.createConfig = async (req, res, next) => {
   try {
     const { key, value, description, category } = req.body;
+    console.log("Check ", key, value, description, category);
 
     // Check if config already exists
     const existingConfig = await SystemConfig.findOne({ key });
@@ -205,6 +215,46 @@ exports.deleteConfig = async (req, res, next) => {
     }
 
     return successResponse(res, "Xóa cấu hình thành công");
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   GET /api/system-config/rate-limit/status
+ * @desc    Get current rate limit config and status
+ * @access  Private - Admin
+ */
+exports.getRateLimitStatus = async (req, res, next) => {
+  try {
+    const currentConfig = getCurrentConfig();
+
+    return successResponse(
+      res,
+      "Lấy trạng thái rate limit thành công",
+      currentConfig,
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   POST /api/system-config/rate-limit/reload
+ * @desc    Reload rate limit config from database
+ * @access  Private - Admin
+ */
+exports.reloadRateLimitConfig = async (req, res, next) => {
+  try {
+    await loadRateLimitConfig();
+
+    const currentConfig = getCurrentConfig();
+
+    return successResponse(
+      res,
+      "Đã reload cấu hình rate limit thành công",
+      currentConfig,
+    );
   } catch (error) {
     next(error);
   }

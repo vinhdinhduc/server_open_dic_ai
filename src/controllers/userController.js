@@ -72,6 +72,11 @@ exports.updateUser = async (req, res, next) => {
     const { id } = req.params;
     const updateData = req.body;
 
+    // Debug log to check data structure
+    if (updateData.moderationPermissions) {
+      JSON.stringify(updateData.moderationPermissions, null, 2);
+    }
+
     const user = await userService.updateUser(id, updateData);
 
     return successResponse(res, "Cập nhật thông tin thành công", user);
@@ -224,6 +229,76 @@ exports.updateEmailConfig = async (req, res, next) => {
     }
 
     return successResponse(res, "Email config updated successfully", results);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   POST /api/users/:id/reset-password
+ * @desc    Admin reset password for user
+ * @access  Private - Admin
+ */
+exports.resetUserPassword = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    const result = await userService.resetUserPassword(id, newPassword);
+
+    return successResponse(res, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   POST /api/users/:id/resend-verification
+ * @desc    Admin resend verification email for user
+ * @access  Private - Admin
+ */
+exports.resendVerificationEmail = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const result = await userService.resendVerificationEmail(id);
+
+    return successResponse(res, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   POST /api/users/batch-update-status
+ * @desc    Batch update user status
+ * @access  Private - Admin
+ */
+exports.batchUpdateStatus = async (req, res, next) => {
+  try {
+    const { userIds, status } = req.body;
+
+    const result = await userService.batchUpdateStatus(userIds, status);
+
+    return successResponse(res, result.message, result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   GET /api/users/:id/activity
+ * @desc    Get user activity history
+ * @access  Private - Admin
+ */
+exports.getUserActivity = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { page, limit } = req.pagination;
+
+    const result = await userService.getUserActivity(id, { page, limit });
+
+    return successResponse(res, "Lấy lịch sử hoạt động thành công", result);
   } catch (error) {
     next(error);
   }

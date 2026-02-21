@@ -103,4 +103,52 @@ router.put(
  */
 router.delete("/:id", validateObjectId("id"), userController.deleteUser);
 
+/**
+ * @route   POST /api/users/:id/reset-password
+ * @desc    Admin reset password cho user
+ * @access  Private - Admin
+ */
+router.post(
+  "/:id/reset-password",
+  validateObjectId("id"),
+  userValidators.resetPassword,
+  validate,
+  userController.resetUserPassword,
+);
+
+/**
+ * @route   POST /api/users/:id/resend-verification
+ * @desc    Admin gửi lại email xác thực
+ * @access  Private - Admin
+ */
+router.post(
+  "/:id/resend-verification",
+  validateObjectId("id"),
+  userController.resendVerificationEmail,
+);
+
+/**
+ * @route   POST /api/users/batch-update-status
+ * @desc    Update status cho nhiều user
+ * @access  Private - Admin
+ */
+router.post(
+  "/batch-update-status",
+  userValidators.batchUpdateStatus,
+  validate,
+  userController.batchUpdateStatus,
+);
+
+/**
+ * @route   GET /api/users/:id/activity
+ * @desc    Lấy lịch sử hoạt động user
+ * @access  Private - Admin/Moderator
+ */
+router.get(
+  "/:id/activity",
+  validateObjectId("id"),
+  validatePagination,
+  userController.getUserActivity,
+);
+
 module.exports = router;

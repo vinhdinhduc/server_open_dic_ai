@@ -99,6 +99,57 @@ exports.updateUser = async (userId, updateData) => {
     }
   });
 
+  // Fix moderationPermissions if it exists - ensure arrays are proper arrays
+  if (filteredData.moderationPermissions) {
+    const mp = filteredData.moderationPermissions;
+
+    // Convert permissions to proper array if it's an object or string
+    if (mp.permissions) {
+      if (typeof mp.permissions === "string") {
+        try {
+          mp.permissions = JSON.parse(mp.permissions);
+        } catch (e) {
+          mp.permissions = [];
+        }
+      }
+      // Convert object with numeric keys to array
+      if (
+        mp.permissions &&
+        typeof mp.permissions === "object" &&
+        !Array.isArray(mp.permissions)
+      ) {
+        mp.permissions = Object.values(mp.permissions);
+      }
+      // Ensure it's an array
+      if (!Array.isArray(mp.permissions)) {
+        mp.permissions = [];
+      }
+    }
+
+    // Convert categories to proper array if it's an object or string
+    if (mp.categories) {
+      if (typeof mp.categories === "string") {
+        try {
+          mp.categories = JSON.parse(mp.categories);
+        } catch (e) {
+          mp.categories = [];
+        }
+      }
+      // Convert object with numeric keys to array
+      if (
+        mp.categories &&
+        typeof mp.categories === "object" &&
+        !Array.isArray(mp.categories)
+      ) {
+        mp.categories = Object.values(mp.categories);
+      }
+      // Ensure it's an array
+      if (!Array.isArray(mp.categories)) {
+        mp.categories = [];
+      }
+    }
+  }
+
   const user = await User.findByIdAndUpdate(userId, filteredData, {
     new: true,
     runValidators: true,
@@ -182,5 +233,171 @@ exports.getUserStats = async () => {
       banned,
     },
     byRole: roleStats,
+  };
+};
+
+/**
+ * Reset password cho user (Admin)
+ */
+exports.resetUserPassword = async (userId, newPassword) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    const error = new Error("Không tìm thấy người dùng");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  user.password = newPassword;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpires = undefined;
+  await user.save();
+
+  return { message: "Đặt lại mật khẩu thành công" };
+};
+
+/**
+ * Gửi lại email xác thực
+ */
+exports.resendVerificationEmail = async (userId) => {
+  const emailService = require("./emailService");
+  const crypto = require("crypto");
+
+  const user = await User.findById(userId);
+  if (!user) {
+    const error = new Error("Không tìm thấy người dùng");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (user.emailVerified) {
+    const error = new Error("Email đã được xác thực");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Generate verification token
+  const verificationToken = crypto.randomBytes(32).toString("hex");
+  user.emailVerificationToken = verificationToken;
+  user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+  await user.save();
+
+  // Send verification email
+  await emailService.sendVerificationEmail(user.email, verificationToken);
+
+  return { message: "Email xác thực đã được gửi lại" };
+};
+
+/**
+ * Batch update status
+ */
+exports.batchUpdateStatus = async (userIds, status) => {
+  if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+    const error = new Error("Danh sách user ID không hợp lệ");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Không cho phép thao tác với admin
+  const adminUsers = await User.find({
+    _id: { $in: userIds },
+    role: USER_ROLES.ADMIN,
+  });
+
+  if (adminUsers.length > 0) {
+    const error = new Error("Không thể thay đổi trạng thái tài khoản Admin");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const result = await User.updateMany(
+    { _id: { $in: userIds } },
+    { $set: { status } },
+  );
+
+  return {
+    message: `Đã cập nhật trạng thái cho ${result.modifiedCount} người dùng`,
+    updated: result.modifiedCount,
+  };
+};
+
+/**
+ * Lấy lịch sử hoạt động của user
+ */
+exports.getUserActivity = async (userId, options = {}) => {
+  const { page = 1, limit = 20 } = options;
+  const skip = (page - 1) * limit;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    const error = new Error("Không tìm thấy người dùng");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const Term = require("../models/Term");
+  const Comment = require("../models/Comment");
+  const Contribution = require("../models/Contribution");
+  const Report = require("../models/Report");
+
+  // Lấy các hoạt động khác nhau
+  const [terms, comments, contributions, reports, totalCounts] =
+    await Promise.all([
+      Term.find({ createdBy: userId })
+        .select("term status createdAt")
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean(),
+      Comment.find({ userId })
+        .select("content status createdAt")
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean(),
+      Contribution.find({ userId })
+        .select("type status createdAt")
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean(),
+      Report.find({ reportedBy: userId })
+        .select("reason status createdAt")
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean(),
+      Promise.all([
+        Term.countDocuments({ createdBy: userId }),
+        Comment.countDocuments({ userId }),
+        Contribution.countDocuments({ userId }),
+        Report.countDocuments({ reportedBy: userId }),
+      ]),
+    ]);
+
+  // Kết hợp và sắp xếp theo thời gian
+  const activities = [
+    ...terms.map((t) => ({ ...t, type: "term" })),
+    ...comments.map((c) => ({ ...c, type: "comment" })),
+    ...contributions.map((c) => ({ ...c, type: "contribution" })),
+    ...reports.map((r) => ({ ...r, type: "report" })),
+  ]
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(skip, skip + limit);
+
+  const [termCount, commentCount, contributionCount, reportCount] = totalCounts;
+
+  return {
+    activities,
+    stats: {
+      terms: termCount,
+      comments: commentCount,
+      contributions: contributionCount,
+      reports: reportCount,
+      total: termCount + commentCount + contributionCount + reportCount,
+    },
+    pagination: {
+      page,
+      limit,
+      total: termCount + commentCount + contributionCount + reportCount,
+      pages: Math.ceil(
+        (termCount + commentCount + contributionCount + reportCount) / limit,
+      ),
+    },
   };
 };

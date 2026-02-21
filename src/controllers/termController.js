@@ -16,11 +16,8 @@ exports.searchTerms = async (req, res, next) => {
       limit,
     });
 
-    // Lưu lịch sử tìm kiếm nếu user đã đăng nhập\
-
-    if (req.user && q) {
-      await termService.saveSearchHistory(req.user._id, q, result.terms.length);
-    }
+    // Note: Search history is now saved from client-side via POST /api/terms/search-history
+    // to support authenticated users when search is called from server-side rendering
 
     return successResponse(res, "Tìm kiếm thuật ngữ thành công", result);
   } catch (error) {
@@ -57,6 +54,16 @@ exports.getTermById = async (req, res, next) => {
 exports.createTerm = async (req, res, next) => {
   try {
     const termData = req.body;
+
+    // Convert tags object to array if needed
+    if (
+      termData.tags &&
+      typeof termData.tags === "object" &&
+      !Array.isArray(termData.tags)
+    ) {
+      termData.tags = Object.values(termData.tags);
+    }
+
     const userId = req.user._id;
     const newTerm = await termService.createTerm(termData, userId);
     return successResponse(res, "Tạo thuật ngữ thành công", newTerm, 201);
@@ -69,6 +76,16 @@ exports.updateTerm = async (req, res, next) => {
   try {
     const { id } = req.params;
     const termData = req.body;
+
+    // Convert tags object to array if needed
+    if (
+      termData.tags &&
+      typeof termData.tags === "object" &&
+      !Array.isArray(termData.tags)
+    ) {
+      termData.tags = Object.values(termData.tags);
+    }
+
     const userId = req.user._id;
     const updatedTerm = await termService.updateTerm(id, termData, userId);
     return successResponse(res, "Cập nhật thuật ngữ thành công", updatedTerm);
@@ -185,12 +202,30 @@ exports.importTerms = async (req, res, next) => {
   }
 };
 
+// Lưu lịch sử tìm kiếm (client-side call)
+exports.saveSearchHistoryEndpoint = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { query, resultCount } = req.body;
+
+    if (!query) {
+      return errorResponse(res, "Query là bắt buộc", 400);
+    }
+
+    await termService.saveSearchHistory(userId, query, resultCount || 0);
+    return successResponse(res, "Đã lưu lịch sử tìm kiếm");
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Lấy lịch sử tìm kiếm
 exports.getSearchHistory = async (req, res, next) => {
   try {
     const userId = req.user._id;
     const { page, limit } = req.pagination;
     const result = await termService.getSearchHistory(userId, { page, limit });
+
     return successResponse(res, "Lấy lịch sử tìm kiếm thành công", result);
   } catch (error) {
     next(error);

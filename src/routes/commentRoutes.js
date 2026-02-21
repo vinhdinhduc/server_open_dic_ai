@@ -9,6 +9,7 @@ const {
 } = require("../middlewares/validate");
 const { commentValidators } = require("../validators");
 const { MODERATION_PERMISSIONS } = require("../utils/constants");
+const { contentCreationLimiter } = require("../middlewares/rateLimiter");
 
 const router = express.Router();
 
@@ -33,6 +34,7 @@ router.get(
 router.post(
   "/",
   authenticate,
+  contentCreationLimiter, // Giới hạn 10 comments/phút
   commentValidators.create,
   validate,
   commentController.createComment,

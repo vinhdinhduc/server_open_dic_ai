@@ -19,9 +19,9 @@ exports.register = async (req, res, next) => {
  */
 exports.login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
 
-    const result = await authService.login(email, password);
+    const result = await authService.login(email, password, rememberMe);
 
     return successResponse(res, "Đăng nhập thành công", result);
   } catch (error) {
@@ -88,13 +88,36 @@ exports.changePassword = async (req, res, next) => {
 
 /**
  * @route   POST /api/auth/logout
- * @desc    Đăng xuất (client xóa token)
+ * @desc    Đăng xuất - xóa refresh token
  * @access  Private
  */
 exports.logout = async (req, res, next) => {
   try {
-    // Backend không cần làm gì, client sẽ xóa token
-    return successResponse(res, "Đăng xuất thành công");
+    const userId = req.user._id;
+    const result = await authService.logout(userId);
+    return successResponse(res, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   POST /api/auth/refresh-token
+ * @desc    Lấy access token mới bằng refresh token
+ * @access  Public
+ */
+exports.refreshToken = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      const error = new Error("Refresh token là bắt buộc");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const result = await authService.refreshAccessToken(refreshToken);
+    return successResponse(res, "Lấy token mới thành công", result);
   } catch (error) {
     next(error);
   }
@@ -132,7 +155,7 @@ exports.resetPassword = async (req, res, next) => {
 
 /**
  * @route   POST /api/auth/google
- * @desc    Đăng nhập bằng Google
+ * @desc    Đăng nhập bằng Google (Frontend OAuth flow)
  * @access  Public
  */
 exports.googleLogin = async (req, res, next) => {
@@ -145,6 +168,75 @@ exports.googleLogin = async (req, res, next) => {
       avatar,
     });
     return successResponse(res, "Đăng nhập Google thành công", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   GET /api/auth/google/callback
+ * @desc    Google OAuth callback (Passport.js)
+ * @access  Public
+ */
+exports.googleCallback = async (req, res, next) => {
+  try {
+    // User đã được Passport authenticate và attach vào req.user
+    const user = req.user;
+
+    if (!user) {
+      return res.redirect(
+        `${process.env.CLIENT_URL || "http://localhost:3000"}/login?error=authentication_failed`,
+      );
+    }
+
+    // Generate tokens
+    const result = await authService.generateTokensForUser(user._id);
+
+    // Redirect về frontend với tokens trong URL query
+    // Frontend sẽ lấy tokens từ URL và lưu vào localStorage
+    const redirectUrl = `${process.env.CLIENT_URL || "http://localhost:3000"}/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`;
+
+    return res.redirect(redirectUrl);
+  } catch (error) {
+    console.error("Google callback error:", error);
+    return res.redirect(
+      `${process.env.CLIENT_URL || "http://localhost:3000"}/login?error=callback_failed`,
+    );
+  }
+};
+
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Xác thực email bằng token
+ * @access  Public
+ */
+exports.verifyEmail = async (req, res, next) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      const error = new Error("Token xác thực là bắt buộc");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const result = await authService.verifyEmail(token);
+    return successResponse(res, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   POST /api/auth/resend-verification
+ * @desc    Gửi lại email xác thực
+ * @access  Private
+ */
+exports.resendVerificationEmail = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const result = await authService.resendVerificationEmail(userId);
+    return successResponse(res, result.message);
   } catch (error) {
     next(error);
   }

@@ -47,6 +47,35 @@ const authValidators = {
       .isIn(["vi", "lo", "en"])
       .withMessage("Ngôn ngữ không hợp lệ"),
   ],
+  changePassword: [
+    body("currentPassword")
+      .trim()
+      .notEmpty()
+      .withMessage("Mật khẩu hiện tại là bắt buộc"),
+    body("newPassword")
+      .trim()
+      .notEmpty()
+      .withMessage("Mật khẩu mới là bắt buộc")
+      .isLength({ min: 6 })
+      .withMessage("Mật khẩu mới phải có ít nhất 6 ký tự"),
+  ],
+
+  googleLogin: [
+    body("googleId").trim().notEmpty().withMessage("Google ID là bắt buộc"),
+    body("email")
+      .trim()
+      .notEmpty()
+      .withMessage("Email là bắt buộc")
+      .isEmail()
+      .withMessage("Email không hợp lệ")
+      .normalizeEmail(),
+    body("fullName").trim().notEmpty().withMessage("Họ tên là bắt buộc"),
+    body("avatar")
+      .optional()
+      .trim()
+      .isURL()
+      .withMessage("Avatar phải là URL hợp lệ"),
+  ],
 };
 
 /**
@@ -165,12 +194,11 @@ const contributionValidators = {
       .isMongoId()
       .withMessage("ID thuật ngữ không hợp lệ"),
   ],
-
   reject: [
     body("moderatorNote")
       .trim()
       .notEmpty()
-      .withMessage("Vui lòng nhập lý do từ chối"),
+      .withMessage("Lý do từ chối là bắt buộc"),
   ],
 };
 
@@ -296,6 +324,25 @@ const userValidators = {
   ],
 
   toggleStatus: [
+    body("status")
+      .isIn(["active", "inactive", "banned"])
+      .withMessage("Status không hợp lệ"),
+  ],
+
+  resetPassword: [
+    body("newPassword")
+      .trim()
+      .notEmpty()
+      .withMessage("Mật khẩu mới là bắt buộc")
+      .isLength({ min: 6 })
+      .withMessage("Mật khẩu phải có ít nhất 6 ký tự"),
+  ],
+
+  batchUpdateStatus: [
+    body("userIds")
+      .isArray({ min: 1 })
+      .withMessage("Danh sách user ID không hợp lệ"),
+    body("userIds.*").isMongoId().withMessage("User ID không hợp lệ"),
     body("status")
       .isIn(["active", "inactive", "banned"])
       .withMessage("Status không hợp lệ"),

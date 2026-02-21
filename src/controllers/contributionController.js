@@ -6,6 +6,7 @@ exports.createContribution = async (req, res, next) => {
   try {
     const contributionData = req.body;
     const userId = req.user._id;
+    console.log("Check contribution data", contributionData);
 
     const newContribution = await contributionService.createContribution(
       userId,

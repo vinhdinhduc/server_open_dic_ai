@@ -4,8 +4,21 @@ const systemConfigController = require("../controllers/systemConfigController");
 const { authenticate } = require("../middlewares/auth");
 const { isAdmin } = require("../middlewares/authorize");
 
-// All routes require authentication and admin role
 router.use(authenticate, isAdmin);
+
+/**
+ * @route   GET /api/system-config/rate-limit/status
+ * @desc    Get current rate limit config and status
+ * @access  Private - Admin
+ */
+router.get("/rate-limit/status", systemConfigController.getRateLimitStatus);
+
+/**
+ * @route   POST /api/system-config/rate-limit/reload
+ * @desc    Reload rate limit config from database
+ * @access  Private - Admin
+ */
+router.post("/rate-limit/reload", systemConfigController.reloadRateLimitConfig);
 
 /**
  * @route   GET /api/system-config

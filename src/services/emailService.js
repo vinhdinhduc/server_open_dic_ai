@@ -34,11 +34,88 @@ const getEmailTransporter = async () => {
       user: emailUser,
       pass: emailPassword,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
 };
 
 /**
- * Gửi email chào mừng khi đăng ký
+ * Gửi email khi người dùng đăng kí thành công để kích hoạt tài khoản
+ */
+exports.sendVerificationEmail = async (
+  userEmail,
+  userName,
+  verificationUrl,
+) => {
+  try {
+    const transporter = await getEmailTransporter();
+    const emailFrom = await SystemConfig.getValue(
+      "email_from",
+      process.env.EMAIL_FROM,
+    );
+    const emailFromName = await SystemConfig.getValue(
+      "email_from_name",
+      "Từ điển Mở",
+    );
+
+    const mailOptions = {
+      from: `${emailFromName} <${emailFrom}>`,
+      to: userEmail,
+      subject: "Xác thực tài khoản - Từ điển Mở",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+          <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #4CAF50; margin: 0;">Từ điển Mở</h1>
+            </div>
+            
+            <h2 style="color: #333;">Xin chào ${userName}!</h2>
+            
+            <p style="color: #666; line-height: 1.6;">
+              Cảm ơn bạn đã đăng ký tài khoản tại <strong>Từ điển Mở</strong>. 
+              Vui lòng xác thực địa chỉ email của bạn để hoàn tất quá trình đăng ký và trải nghiệm đầy đủ các tính năng.
+            </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.CLIENT_URL}/verify-email?token=${verificationUrl}" 
+                 style="display: inline-block; padding: 15px 40px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                Xác thực email
+              </a>
+            </div>
+            
+            <p style="color: #666; font-size: 14px; line-height: 1.6;">
+              Hoặc sao chép và dán liên kết sau vào trình duyệt:
+            </p>
+            <p style="color: #4CAF50; word-break: break-all; font-size: 14px;">
+              ${process.env.CLIENT_URL}/verify-email?token=${verificationUrl}
+            </p>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+              <p style="color: #999; font-size: 13px; line-height: 1.6;">
+                <strong>Lưu ý:</strong> Liên kết này sẽ hết hạn sau 24 giờ. 
+                Nếu bạn không thực hiện đăng ký này, vui lòng bỏ qua email này.
+              </p>
+            </div>
+            
+            <div style="margin-top: 30px; text-align: center; color: #999; font-size: 12px;">
+              <p>© 2026 Từ điển Mở - Nền tảng từ điển mở cho cộng đồng</p>
+            </div>
+          </div>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Verification email sent to ${userEmail}`);
+  } catch (error) {
+    console.error("Error sending verification email:", error);
+    throw error;
+  }
+};
+
+/**
+ * Gửi email chào mừng (sau khi verify)
  */
 exports.sendWelcomeEmail = async (userEmail, userName) => {
   try {
@@ -46,6 +123,49 @@ exports.sendWelcomeEmail = async (userEmail, userName) => {
     const emailFrom = await SystemConfig.getValue(
       "email_from",
       process.env.EMAIL_FROM,
+    );
+    const emailFromName = await SystemConfig.getValue(
+      "email_from_name",
+      "Từ điển Mở",
+    );
+
+    const mailOptions = {
+      from: `${emailFromName} <${emailFrom}>`,
+      to: userEmail,
+      subject: "Chào mừng bạn đến với Từ điển Mở!",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #4CAF50;">Xin chào ${userName}!</h2>
+          <p>Cảm ơn bạn đã xác thực tài khoản tại <strong>Từ điển Mở</strong>.</p>
+          <p>Bạn có thể bắt đầu:</p>
+          <ul>
+            <li>Tra cứu từ vựng</li>
+            <li>Đóng góp từ mới</li>
+            <li>Tham gia cộng đồng xây dựng từ điển</li>
+          </ul>
+          <p>Nếu bạn cần hỗ trợ, vui lòng liên hệ với chúng tôi.</p>
+          <p style="margin-top: 30px;">Trân trọng,<br/>Đội ngũ Từ điển Mở</p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Welcome email sent to ${userEmail}`);
+  } catch (error) {
+    console.error("Error sending welcome email:", error);
+    // Không throw error để không làm gián đoạn quá trình đăng ký
+  }
+};
+
+/**
+ * Gửi email khi người dùng đăng kí thành công để kích hoạt tài khoản (deprecated - sử dụng sendVerificationEmail thay thế)
+ */
+exports.sendEmailActiveAccount = async (userEmail, userName) => {
+  try {
+    const transporter = await getEmailTransporter();
+    const emailFrom = await SystemConfig.getValue(
+      "email_from",
+      process.env.EMAIL_FROM || emailUser,
     );
 
     const mailOptions = {

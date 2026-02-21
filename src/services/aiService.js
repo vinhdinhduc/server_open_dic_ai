@@ -1,4 +1,3 @@
-const { GoogleGenAI } = require("@google/genai");
 const SystemConfig = require("../models/SystemConfig");
 
 /**
@@ -10,7 +9,6 @@ const getAIConfig = async () => {
   const provider = await SystemConfig.getValue("ai_provider", "gemini");
   const model = await SystemConfig.getValue("ai_model", "gemini-2.5-flash");
   const maxTokens = await SystemConfig.getValue("ai_max_tokens", 8192);
-  console.log(apiKey, provider, model, maxTokens);
 
   return {
     apiKey,
@@ -20,23 +18,83 @@ const getAIConfig = async () => {
   };
 };
 
-/**
- * Hỏi AI về thuật ngữ không tìm thấy trong hệ thống
- * @param {string} term - Thuật ngữ cần tìm hiểu
- * @param {string} language - Ngôn ngữ (vi, en, lo)
- * @param {string} userId - ID người dùng
- * @returns {Promise<Object>} - Kết quả từ AI
- */
+const callAiProvider = async (prompt, config) => {
+  switch (config.provider) {
+    case "gemini":
+      return await callGeminiAPI(prompt, config);
+    case "openai":
+      return await callOpenAiAPI(prompt, config);
+    case "grok":
+      return await callGrokAPI(prompt, config);
+    default:
+      throw new Error(`Unsupported AI provider: ${config.provider}`);
+  }
+};
+
+const callOpenAiAPI = async (prompt, config) => {
+  try {
+    const OpenAI = require("openai");
+    const openai = new OpenAI({ apiKey: config.apiKey });
+
+    const response = await openai.chat.completions.create({
+      model: config.model,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: config.maxTokens || 2048,
+      temperature: config.temperature || 0.7,
+      response_format: {
+        type: "json_object",
+      },
+    });
+
+    const text = response.choices[0].message.content;
+    return text;
+  } catch (error) {
+    console.error("OpenAI API Error:", error.message);
+    if (error.message && error.message.includes("Incorrect API key")) {
+      throw new Error("API không hợp lệ. Vui lòng kiểm tra lại API key.");
+    } else if (error.message && error.message.includes("Rate limit exceeded")) {
+      throw new Error("Đã vượt quá giới hạn API. Vui lòng thử lại sau.");
+    } else if (error.message && error.message.includes("model not found")) {
+      throw new Error(
+        `Model ${config.model} không khả dụng. Hãy thử các model phổ biến.`,
+      );
+    }
+    throw error;
+  }
+};
+
+const callGrokAPI = async (prompt, config) => {
+  try {
+    const OpenAI = require("openai");
+    const client = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: "https://api.x.ai/v1", // Grok dùng base URL khác
+    });
+
+    const response = await client.chat.completions.create({
+      model: config.model || "grok-3",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: config.maxTokens || 2048,
+      temperature: config.temperature || 0.7,
+      response_format: { type: "json_object" },
+    });
+
+    return response.choices[0].message.content;
+  } catch (error) {
+    console.error("Grok API Error:", error.message);
+    throw error;
+  }
+};
+
 const askAboutTerm = async (term, language = "vi", userId) => {
   try {
     // Lấy cấu hình từ database
     const config = await getAIConfig();
-    console.log("📝 AI Config:", {
-      provider: config.provider,
-      model: config.model,
-      maxTokens: config.maxTokens,
-      hasApiKey: !!config.apiKey,
-    });
 
     // Nếu không có API key, trả về mock response
     if (!config.apiKey) {
@@ -46,18 +104,12 @@ const askAboutTerm = async (term, language = "vi", userId) => {
     // Tạo prompt dựa trên ngôn ngữ
     const prompt = generateFullPrompt(term, language);
 
-    // Gọi API theo provider
-    let aiResponse;
-    if (config.provider === "gemini") {
-      aiResponse = await callGeminiAPI(prompt, config);
-    } else {
-      // Fallback to mock
-      return getMockResponse(term, language);
-    }
+    // Gọi API của nhà cung cấp AI
+    const aiResponse = await callAiProvider(prompt, config);
 
     // Parse AI response thành cấu trúc khớp Term model
     const structuredData = parseAIResponse(aiResponse, term, language, config);
-    console.log("✨ Parsed structure:", {
+    console.log(" Parsed structure:", {
       term: structuredData.term,
       structured: structuredData.structured,
       hasDefinition: !!structuredData.definition,
@@ -71,8 +123,6 @@ const askAboutTerm = async (term, language = "vi", userId) => {
     };
   } catch (error) {
     console.error("AI Service Error:", error.message);
-
-    // Fallback to mock response if API fails
     return getMockResponse(term, language);
   }
 };
@@ -82,6 +132,7 @@ const askAboutTerm = async (term, language = "vi", userId) => {
  */
 const callGeminiAPI = async (prompt, config) => {
   try {
+    const { GoogleGenAI } = require("@google/genai");
     const genAI = new GoogleGenAI({ apiKey: config.apiKey });
 
     // Xử lý tên model nếu có hậu tố "-latest"
@@ -89,9 +140,6 @@ const callGeminiAPI = async (prompt, config) => {
     if (modelName.endsWith("-latest")) {
       modelName = modelName.replace("-latest", "");
     }
-
-    console.log(`🤖 Calling Gemini API with model: ${modelName}`);
-    console.log(`📊 Config: maxTokens=${config.maxTokens}`);
 
     // Prepare generation config
     const generationConfig = {
@@ -137,17 +185,15 @@ const callGeminiAPI = async (prompt, config) => {
 
     const text = result.text;
 
-    console.log(`✅ Received response from Gemini (${text.length} chars)`);
-
     // Kiểm tra nếu response bị truncated
     if (text.length < 100 || !text.trim().endsWith("}")) {
-      console.warn("⚠️ Response seems truncated or incomplete");
+      console.warn("Response seems truncated or incomplete");
       console.warn("Response preview:", text.substring(0, 200));
     }
 
     return text;
   } catch (error) {
-    console.error("❌ Gemini SDK Error:", error.message);
+    console.error("Gemini SDK Error:", error.message);
     console.error("Error stack:", error.stack);
 
     // Better error messages
@@ -262,13 +308,10 @@ const parseAIResponse = (aiResponse, term, language, config) => {
   try {
     let jsonStr = aiResponse.trim();
 
-    // Loại bỏ markdown code block nếu AI thêm vào
     if (jsonStr.startsWith("```")) {
       jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
     }
 
-    // Làm sạch JSON string trước khi parse
-    // Thay thế các ký tự xuống dòng không hợp lệ trong string values
     jsonStr = cleanJsonString(jsonStr);
 
     const parsed = JSON.parse(jsonStr);
@@ -292,12 +335,11 @@ const parseAIResponse = (aiResponse, term, language, config) => {
     };
   } catch (e) {
     console.warn(
-      "⚠️ Failed to parse AI JSON, falling back to raw text:",
+      "Failed to parse AI JSON, falling back to raw text:",
       e.message,
     );
     console.warn("Raw AI Response:", aiResponse.substring(0, 500));
 
-    // Fallback: trả về raw text nếu không parse được JSON
     return {
       term,
       language,
@@ -319,26 +361,12 @@ const cleanJsonString = (jsonStr) => {
     JSON.parse(jsonStr);
     return jsonStr;
   } catch (e) {
-    // Nếu lỗi, thử làm sạch
-    console.log("🔧 Attempting to clean JSON string...");
-
-    // Không làm gì với JSON đã đúng format
-    // Chỉ xử lý các trường hợp đặc biệt
-
-    // 1. Fix unescaped newlines trong string values
-    // Tìm các string value có newline và replace bằng \\n
     let cleaned = jsonStr;
-
-    // 2. Fix unescaped quotes trong string values
-    // (Phức tạp, tạm thời bỏ qua vì có thể gây lỗi khác)
-
-    // 3. Thử parse lại
     try {
       JSON.parse(cleaned);
       return cleaned;
     } catch (e2) {
-      // Nếu vẫn lỗi, trả về nguyên bản
-      console.warn("❌ Could not clean JSON, returning original");
+      console.warn(" Could not clean JSON, returning original");
       return jsonStr;
     }
   }

@@ -68,6 +68,12 @@ const userSchema = new mongoose.Schema(
     // Forgot password
     resetPasswordToken: String,
     resetPasswordExpires: Date,
+    // Email verification
+    emailVerificationToken: String,
+    emailVerificationExpires: Date,
+    // Refresh Token
+    refreshToken: String,
+    refreshTokenExpires: Date,
     // Google OAuth
     googleId: {
       type: String,

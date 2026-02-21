@@ -54,7 +54,6 @@ exports.importFromFile = async (file, userId, categoryId) => {
       try {
         const row = data[i];
 
-        // Map column names (hỗ trợ cả tiếng Anh và tiếng Việt)
         const termVi =
           row.term_vi ||
           row["Thuật ngữ (VI)"] ||
