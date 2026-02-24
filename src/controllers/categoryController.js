@@ -99,6 +99,23 @@ exports.deleteCategory = async (req, res, next) => {
 };
 
 /**
+ * @route   PUT /api/categories/:id/deactivate
+ * @desc    Vô hiệu hóa (ẩn) danh mục thay vì xóa
+ * @access  Private - Admin
+ */
+exports.deactivateCategory = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const result = await categoryService.deactivateCategory(id);
+
+    return successResponse(res, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * @route   GET /api/categories/moderator/my-categories
  * @desc    Lấy danh mục được phân quyền cho moderator kèm stats
  * @access  Private - Moderator/Admin

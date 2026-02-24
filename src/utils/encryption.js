@@ -13,7 +13,7 @@ const getEncryptionKey = () => {
 
   if (!key) {
     console.warn(
-      "⚠️  WARNING: ENCRYPTION_KEY not found in environment variables. Using default key (NOT SECURE FOR PRODUCTION)",
+      "  WARNING: ENCRYPTION_KEY not found in environment variables. Using default key (NOT SECURE FOR PRODUCTION)",
     );
     // Default key for development only - MUST be changed in production
     return crypto.scryptSync("default-encryption-key-change-me", "salt", 32);

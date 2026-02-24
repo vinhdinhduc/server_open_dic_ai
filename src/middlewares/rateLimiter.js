@@ -63,15 +63,17 @@ async function loadRateLimitConfig() {
           rateLimitConfig.login.windowMs = value;
         } else if (key === "rate_limit_login_max_attempts") {
           rateLimitConfig.login.max = value;
+        } else if (key === "rate_limit_ai_window_ms") {
+          rateLimitConfig.ai.windowMs = value;
+        } else if (key === "rate_limit_ai_max_requests") {
+          rateLimitConfig.ai.max = value;
         }
       });
-
-      console.log("[Rate Limit] ✅ Loaded config from database");
     } else {
-      console.log("[Rate Limit] ⚠️  No config found in DB, using defaults");
+      console.log("[Rate Limit]  No config found in DB, using defaults");
     }
   } catch (error) {
-    console.error("[Rate Limit] ❌ Error loading config:", error.message);
+    console.error("[Rate Limit]  Error loading config:", error.message);
     console.log("[Rate Limit] Using default config");
   }
 }
@@ -86,16 +88,8 @@ const skipIfDisabled = (req, res) => {
   return !rateLimitConfig.enabled;
 };
 
-/**
- * Get current rate limit config
- */
 const getCurrentConfig = () => rateLimitConfig;
 
-// ==================== RATE LIMITERS ====================
-
-/**
- * Rate limiter chung (không dùng nữa để tránh double count)
- */
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -144,7 +138,7 @@ const loginLimiter = rateLimit({
   windowMs: () => rateLimitConfig.login.windowMs,
   max: () => rateLimitConfig.login.max,
   message: {
-    error: "Quá nhiều lần đăng nhập thất bại từ IP này, vui lòng thử lại sau",
+    error: `Quá nhiều lần đăng nhập thất bại, vui lòng thử lại sau ${rateLimitConfig.login.windowMs / 60000} phút`,
   },
   standardHeaders: true,
   legacyHeaders: false,

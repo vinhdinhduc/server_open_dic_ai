@@ -175,12 +175,28 @@ exports.changePassword = async (userId, currentPassword, newPassword) => {
     throw error;
   }
 
-  // kiểm tra mật khẩu hiện tại
-  const isMatchPassword = await user.comparePassword(currentPassword);
-  if (!isMatchPassword) {
-    const error = new Error("Mật khẩu hiện tại không đúng");
-    error.statusCode = 401;
-    throw error;
+  const isGoogleOnlyUser = user.authProvider === "google" && !user.password;
+
+  if (isGoogleOnlyUser) {
+    // Google user chưa có mật khẩu — không cần xác minh mật khẩu hiện tại
+    if (!newPassword) {
+      const error = new Error("Mật khẩu mới là bắt buộc");
+      error.statusCode = 400;
+      throw error;
+    }
+  } else {
+    // User thường hoặc Google user đã có mật khẩu — phải xác minh mật khẩu hiện tại
+    if (!currentPassword) {
+      const error = new Error("Mật khẩu hiện tại là bắt buộc");
+      error.statusCode = 400;
+      throw error;
+    }
+    const isMatchPassword = await user.comparePassword(currentPassword);
+    if (!isMatchPassword) {
+      const error = new Error("Mật khẩu hiện tại không đúng");
+      error.statusCode = 401;
+      throw error;
+    }
   }
 
   user.password = newPassword;
@@ -274,7 +290,7 @@ exports.logout = async (userId) => {
  * Lấy thông tin profile
  */
 exports.getProfile = async (userId) => {
-  const user = await User.findById(userId);
+  const user = await User.findById(userId).select("+password");
 
   if (!user) {
     const error = new Error("Không tìm thấy người dùng");
@@ -293,6 +309,8 @@ exports.getProfile = async (userId) => {
     emailVerified: user.emailVerified,
     createdAt: user.createdAt,
     lastLogin: user.lastLogin,
+    authProvider: user.authProvider,
+    hasPassword: !!user.password,
   };
 };
 
@@ -304,14 +322,6 @@ exports.forgotPassword = async (email) => {
   if (!user) {
     const error = new Error("Email không tồn tại trong hệ thống");
     error.statusCode = 404;
-    throw error;
-  }
-
-  if (user.authProvider === "google") {
-    const error = new Error(
-      "Tài khoản này đăng nhập bằng Google, không thể đặt lại mật khẩu",
-    );
-    error.statusCode = 400;
     throw error;
   }
 

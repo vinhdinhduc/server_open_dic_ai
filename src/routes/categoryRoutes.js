@@ -75,4 +75,17 @@ router.delete(
   categoryController.deleteCategory,
 );
 
+/**
+ * @route   PUT /api/categories/:id/deactivate
+ * @desc    Ẩn danh mục (soft disable)
+ * @access  Private - Admin
+ */
+router.put(
+  "/:id/deactivate",
+  authenticate,
+  isAdmin,
+  validateObjectId("id"),
+  categoryController.deactivateCategory,
+);
+
 module.exports = router;

@@ -18,6 +18,7 @@ exports.searchTerms = async (req, res, next) => {
 
     // Note: Search history is now saved from client-side via POST /api/terms/search-history
     // to support authenticated users when search is called from server-side rendering
+    console.log("Check response trả vể", result);
 
     return successResponse(res, "Tìm kiếm thuật ngữ thành công", result);
   } catch (error) {
@@ -47,6 +48,15 @@ exports.getTermById = async (req, res, next) => {
     const userId = req.user?._id;
     const term = await termService.getTermById(id, userId);
     return successResponse(res, "Lấy chi tiết thuật ngữ thành công", term);
+  } catch (error) {
+    next(error);
+  }
+};
+exports.incrementTermView = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    await termService.incrementTermView(id);
+    return successResponse(res, "Cập nhật lượt xem thành công", {});
   } catch (error) {
     next(error);
   }

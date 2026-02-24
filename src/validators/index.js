@@ -49,9 +49,8 @@ const authValidators = {
   ],
   changePassword: [
     body("currentPassword")
-      .trim()
-      .notEmpty()
-      .withMessage("Mật khẩu hiện tại là bắt buộc"),
+      .optional({ nullable: true, checkFalsy: true })
+      .trim(),
     body("newPassword")
       .trim()
       .notEmpty()

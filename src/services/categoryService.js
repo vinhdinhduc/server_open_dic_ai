@@ -101,7 +101,8 @@ exports.updateCategory = async (categoryId, updateData) => {
 /**
  * Xóa danh mục
  */
-exports.deleteCategory = async (categoryId) => {
+exports.deleteCategory = async (categoryId, options = {}) => {
+  const Term = require("../models/Term");
   const category = await Category.findById(categoryId);
 
   if (!category) {
@@ -110,24 +111,67 @@ exports.deleteCategory = async (categoryId) => {
     throw error;
   }
 
-  // Kiểm tra có thuật ngữ nào không
-  if (category.termCount > 0) {
-    const error = new Error("Không thể xóa danh mục đang có thuật ngữ");
+  // Kiểm tra có danh mục con không (luôn chặn)
+  const childCount = await Category.countDocuments({
+    parentCategory: categoryId,
+  });
+  if (childCount > 0) {
+    const error = new Error(
+      `Không thể xóa danh mục đang có ${childCount} danh mục con. Vui lòng xóa hoặc chuyển danh mục con trước.`,
+    );
     error.statusCode = 400;
+    error.childCount = childCount;
     throw error;
   }
 
-  // Kiểm tra có danh mục con không
-  const childCategories = await Category.countDocuments({
-    parentCategory: categoryId,
-  });
-  if (childCategories > 0) {
-    const error = new Error("Không thể xóa danh mục đang có danh mục con");
+  // Kiểm tra có thuật ngữ nào không (đếm trực tiếp từ DB, tránh dùng termCount cached)
+  const actualTermCount = await Term.countDocuments({ category: categoryId });
+  if (actualTermCount > 0) {
+    const error = new Error(
+      `Không thể xóa danh mục đang có ${actualTermCount} thuật ngữ. Hãy xóa hết thuật ngữ hoặc chuyển chúng sang danh mục khác, hoặc chọn "Ẩn danh mục" thay vì xóa.`,
+    );
     error.statusCode = 400;
+    error.termCount = actualTermCount;
     throw error;
   }
 
   await category.deleteOne();
 
   return { message: "Xóa danh mục thành công" };
+};
+
+/**
+ * Vô hiệu hóa (ẩn) danh mục - soft delete
+ */
+exports.deactivateCategory = async (categoryId) => {
+  const category = await Category.findById(categoryId);
+
+  if (!category) {
+    const error = new Error("Không tìm thấy danh mục");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  category.isActive = false;
+  await category.save();
+
+  return { message: "Đã ẩn danh mục thành công" };
+};
+
+/**
+ * Vô hiệu hóa (ẩn) danh mục thay vì xóa
+ */
+exports.deactivateCategory = async (categoryId) => {
+  const category = await Category.findById(categoryId);
+
+  if (!category) {
+    const error = new Error("Không tìm thấy danh mục");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  category.isActive = false;
+  await category.save();
+
+  return { message: "Đã ẩn danh mục thành công" };
 };

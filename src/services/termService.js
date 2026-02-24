@@ -13,27 +13,28 @@ exports.searchTerms = async (query, options = {}) => {
     sortBy = "relevance",
   } = options;
   const skip = (page - 1) * limit;
-  const searchQuery = {};
-
+  const searchQuery = { status: TERM_STATUS.APPROVED };
+  let projection = {};
+  let sort = {};
   //Tìm kiếm full-text
 
-  if (query) {
-    searchQuery.$text = { $search: query };
+  if (query && query.trim()) {
+    searchQuery.$text = { $search: query.trim() };
+
+    if (sortBy === "relevance") {
+      sort.core = { $meta: "textScore" };
+      projection.score = { $meta: "textScore" };
+    }
   }
 
   //filter theo category - bỏ qua nếu là "all" hoặc không có giá trị
 
   if (category && category !== "all") {
-    searchQuery.category = category;
+    if (mongoose.Types.ObjectId.isValid(category)) {
+      searchQuery.category = new mongoose.Types.ObjectId(category);
+    }
   }
-  searchQuery.status = TERM_STATUS.APPROVED;
-
-  //sort
-  let sort = {};
-
-  if (query && sortBy === "relevance") {
-    sort.score = { $meta: "textScore" };
-  } else if (sortBy === "popular") {
+  if (sortBy === "popular") {
     sort.viewCount = -1;
   } else if (sortBy === "newest") {
     sort.createdAt = -1;
@@ -49,7 +50,8 @@ exports.searchTerms = async (query, options = {}) => {
       .populate("relatedTerms", "term definition")
       .select(
         "term definition category viewCount favoriteCount createdAt relatedTerms",
-      ),
+      )
+      .lean(),
     Term.countDocuments(searchQuery),
   ]);
 
@@ -79,23 +81,21 @@ exports.getTerms = async (options = {}) => {
   // Filter theo status - mặc định là approved nếu không có
   if (status && status !== "all") {
     query.status = status;
+  } else {
+    query.status = TERM_STATUS.APPROVED;
   }
 
   // Filter theo category
   if (category && category !== "all") {
-    query.category = category;
+    if (mongoose.Types.ObjectId.isValid(category)) {
+      query.category = new mongoose.Types.ObjectId(category);
+    }
   }
 
   // Search theo term (vi, en, lo)
-  if (search && search.trim()) {
-    const searchRegex = new RegExp(search.trim(), "i");
-    query.$or = [
-      { "term.vi": searchRegex },
-      { "term.en": searchRegex },
-      { "term.lo": searchRegex },
-      { "definition.vi": searchRegex },
-      { "definition.en": searchRegex },
-    ];
+  if (search && search.trim().length >= 2) {
+    const trimmed = search.trim();
+    query.$text = { $search: trimmed };
   }
 
   // Sort
@@ -119,7 +119,8 @@ exports.getTerms = async (options = {}) => {
       .populate("createdBy", "fullName")
       .select(
         "term definition category viewCount favoriteCount commentCount status createdAt updatedAt",
-      ),
+      )
+      .lean(),
     Term.countDocuments(query),
   ]);
 
@@ -176,10 +177,22 @@ exports.getTermById = async (termId, userId = null) => {
     throw error;
   }
 
-  // Tăng view
-  term.viewCount += 1;
-  await term.save();
   return term;
+};
+
+// Tăng lượt xem thuật ngữ (gọi riêng để tránh double-count)
+exports.incrementTermView = async (termId) => {
+  const term = await Term.findByIdAndUpdate(
+    termId,
+    { $inc: { viewCount: 1 } },
+    { new: false },
+  );
+  if (!term) {
+    const error = new Error("Không tìm thấy thuật ngữ");
+    error.statusCode = 404;
+    throw error;
+  }
+  return true;
 };
 
 //Tạo thuật ngữ mới
@@ -310,15 +323,21 @@ exports.clearSearchHistory = async (userId) => {
 };
 
 //Lấy gợi ý tìm kiếm
-
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 exports.getSuggestions = async (query, language = "vi", limit = 10) => {
-  const regex = new RegExp(query, "i");
-  const terms = await Term.find({
-    [`term.${language}`]: regex,
-    status: TERM_STATUS.APPROVED,
-  })
-    .select(`term.${language}`)
-    .limit(limit);
-
-  return terms.map((term) => term.term[language]);
+  if (!query || query.trim().length < 2) return [];
+  const trimmed = query.trim();
+  const prefixRegex = new RegExp(`^${escapeRegex(trimmed)}`, "i");
+  const terms = await Term.find(
+    {
+      [`term.${language}`]: prefixRegex,
+      status: TERM_STATUS.APPROVED,
+    },
+    {
+      [`term.${language}`]: 1,
+    },
+  )
+    .limit(limit)
+    .lean();
+  return terms.map((t) => t.term[language]).filter(Boolean);
 };

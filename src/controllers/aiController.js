@@ -18,11 +18,47 @@ const askAboutTerm = async (req, res) => {
     if (!term || term.trim().length === 0) {
       return errorResponse(res, "Vui lòng nhập thuật ngữ cần tìm hiểu", 400);
     }
+    const trimmed = term.trim();
+    if (trimmed.length < 2) {
+      return errorResponse(res, "Thuật ngữ phải có ít nhất 2 ký tự", 400);
+    }
+    if (trimmed.length > 100) {
+      return errorResponse(res, "Thuật ngữ không được vượt quá 100 ký tự", 400);
+    }
+    //Chặn  chuỗi vô nghĩa
 
-    if (term.length > 200) {
-      return errorResponse(res, "Thuật ngữ không được vượt quá 200 ký tự", 400);
+    const hasValidChar = /[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/.test(trimmed);
+    if (!hasValidChar) {
+      return errorResponse(res, "Thuật ngữ phải chứa ký tự hợp lệ", 400);
     }
 
+    //Chặn kí tự đặc biệt nguy hiểm
+    const hasDangerousChar = [
+      /ignore\s+(all\s+)?previous\s+instructions/i,
+      /you\s+are\s+now/i,
+      /act\s+as/i,
+      /system\s*:/i,
+      /\[INST\]/i,
+      /<\|.*?\|>/,
+      /```[\s\S]*?```/,
+    ];
+    const isInjection = hasDangerousChar.some((regex) => regex.test(trimmed));
+    if (isInjection) {
+      return errorResponse(res, "Thuật ngữ chứa nội dung không hợp lệ", 400);
+    }
+
+    const specialCharsRatio =
+      trimmed.match(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\s]/g)?.length /
+        trimmed.length || 0;
+
+    if (specialCharsRatio > 0.3) {
+      return errorResponse(res, "Thuật ngữ chứa quá nhiều ký tự đặc biệt", 400);
+    }
+
+    const hasRepetitiveChars = /(.)\1{4,}/.test(trimmed);
+    if (hasRepetitiveChars) {
+      return errorResponse(res, "Thuật ngữ chứa quá nhiều ký tự lặp lại", 400);
+    }
     const validLanguages = ["vi", "en", "lo"];
     if (!validLanguages.includes(language)) {
       return errorResponse(res, "Ngôn ngữ không hợp lệ", 400);

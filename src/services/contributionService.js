@@ -12,11 +12,15 @@ const {
 } = require("../utils/constants");
 //Tạo đóng góp thuật ngữ mới
 exports.createContribution = async (userId, contributionData) => {
+  console.log("contribution data", contributionData);
+
   const newContribution = await Contribution.create({
     ...contributionData,
     contributor: userId,
     status: CONTRIBUTION_STATUS.PENDING,
   });
+
+  console.log("after", newContribution);
 
   // Lấy thông tin contributor và gửi email cho admin
   const contributor = await User.findById(userId).select("fullName email");
@@ -149,6 +153,8 @@ exports.approveContribution = async (
       definition: contribution.definition,
       detailedExplanation: contribution.detailedExplanation,
       examples: contribution.examples,
+      partOfSpeech: contribution.partOfSpeech,
+      tags: contribution.tags,
       category: contribution.category,
       createdBy: contribution.contributor,
       status: TERM_STATUS.APPROVED,
@@ -165,6 +171,8 @@ exports.approveContribution = async (
         definition: contribution.definition,
         detailedExplanation: contribution.detailedExplanation,
         examples: contribution.examples,
+        partOfSpeech: contribution.partOfSpeech,
+        tags: contribution.tags,
         lastModifiedBy: contribution.contributor,
       },
       { new: true },

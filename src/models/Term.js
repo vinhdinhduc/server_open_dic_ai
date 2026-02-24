@@ -82,5 +82,12 @@ termSchema.index({
 
 termSchema.index({ category: 1, status: 1 });
 termSchema.index({ createdBy: 1 });
+termSchema.index({ status: 1, createdAt: -1 });
+termSchema.index({ status: 1, viewCount: -1 });
+termSchema.index({ category: 1, status: 1, createdAt: -1 });
+termSchema.index({ "term.vi": 1 });
+termSchema.index({ "term.en": 1 });
+termSchema.index({ "term.lo": 1 });
+termSchema.index({ tags: 1 }, { sparse: true });
 
 module.exports = mongoose.model("Term", termSchema);

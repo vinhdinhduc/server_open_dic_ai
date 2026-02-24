@@ -67,6 +67,10 @@ const noSqlInjectionProtection = (req, res, next) => {
       // Loại bỏ các operators MongoDB nguy hiểm
       return value.replace(/[${}]/g, "");
     }
+    // Xử lý mảng trước khi xử lý object (vì Array cũng là typeof "object")
+    if (Array.isArray(value)) {
+      return value.map((item) => sanitizeValue(item));
+    }
     if (typeof value === "object" && value !== null) {
       // Nếu là object thì check từng key
       const clean = {};

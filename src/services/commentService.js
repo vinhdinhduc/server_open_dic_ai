@@ -247,7 +247,7 @@ exports.deleteComment = async (commentId, userId, userRole) => {
   }
 
   //Giảm comement count của term
-  const term = await Term.findById(comment.term, {
+  const term = await Term.findByIdAndUpdate(comment.term, {
     $inc: { commentCount: -1 },
   });
 

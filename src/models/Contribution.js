@@ -39,6 +39,8 @@ const contributionSchema = new mongoose.Schema(
       ref: "Category",
       required: true,
     },
+    partOfSpeech: String,
+    tags: [String],
     contributorNote: String,
     contributor: {
       type: mongoose.Schema.Types.ObjectId,
@@ -63,7 +65,7 @@ const contributionSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 contributionSchema.index({ contributor: 1, status: 1 });

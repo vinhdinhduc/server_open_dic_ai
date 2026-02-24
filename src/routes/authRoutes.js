@@ -34,7 +34,7 @@ router.post(
  */
 router.post(
   "/login",
-  loginLimiter, // Chống brute force - giới hạn 5 lần thử/15 phút
+  // loginLimiter,
   authValidators.login,
   validate,
   authController.login,

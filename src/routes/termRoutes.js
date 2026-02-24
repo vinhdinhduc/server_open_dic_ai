@@ -151,6 +151,17 @@ router.get(
 );
 
 /**
+ * @route   POST /api/terms/:id/view
+ * @desc    Tăng lượt xem thuật ngữ
+ * @access  Public
+ */
+router.post(
+  "/:id/view",
+  validateObjectId("id"),
+  termController.incrementTermView,
+);
+
+/**
  * @route   GET /api/terms
  * @desc    Lấy danh sách thuật ngữ
  * @access  Public
