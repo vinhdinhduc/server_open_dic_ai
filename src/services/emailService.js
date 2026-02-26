@@ -1,11 +1,7 @@
 const nodemailer = require("nodemailer");
 const SystemConfig = require("../models/SystemConfig");
 
-/**
- * Lấy email transporter từ config
- */
 const getEmailTransporter = async () => {
-  const emailService = await SystemConfig.getValue("email_service", "gmail");
   const emailHost = await SystemConfig.getValue("email_host", "smtp.gmail.com");
   const emailPort = await SystemConfig.getValue("email_port", 587);
   const emailSecure = await SystemConfig.getValue("email_secure", false);
@@ -17,187 +13,264 @@ const getEmailTransporter = async () => {
     "email_password",
     process.env.EMAIL_PASSWORD,
   );
-  const emailFrom = await SystemConfig.getValue(
-    "email_from",
-    process.env.EMAIL_FROM || emailUser,
-  );
 
   if (!emailUser || !emailPassword) {
-    throw new Error("Email configuration is missing");
+    throw new Error(
+      "Email configuration is missing (email_user / email_password)",
+    );
   }
 
   return nodemailer.createTransport({
     host: emailHost,
     port: emailPort,
     secure: emailSecure,
-    auth: {
-      user: emailUser,
-      pass: emailPassword,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
+    auth: { user: emailUser, pass: emailPassword },
+    tls: { rejectUnauthorized: false },
   });
 };
 
+const getMailConfig = async () => {
+  const transporter = await getEmailTransporter();
+  const emailFrom = await SystemConfig.getValue(
+    "email_from",
+    process.env.EMAIL_FROM,
+  );
+  const emailFromName = await SystemConfig.getValue(
+    "email_from_name",
+    "Từ điển Mở",
+  );
+  return { transporter, from: `${emailFromName} <${emailFrom}>` };
+};
+
 /**
- * Gửi email khi người dùng đăng kí thành công để kích hoạt tài khoản
+ * Wraps HTML body content in a consistent, nicely styled email shell.
+ *
+ * @param {string} title       - Card heading (text only).
+ * @param {string} accentColor - Hex colour for the header & accents.
+ * @param {string} bodyHtml    - Inner HTML (paragraphs, boxes, buttons …).
+ * @returns {string}           - Full HTML for the email.
+ */
+const buildEmailHtml = (title, accentColor, bodyHtml) => `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+</head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0"
+               style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;
+                      box-shadow:0 4px 16px rgba(0,0,0,0.08);overflow:hidden;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:${accentColor};padding:28px 40px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">
+                 Từ điển Mở
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 40px;">
+              <h2 style="margin:0 0 20px;color:${accentColor};font-size:20px;font-weight:700;">
+                ${title}
+              </h2>
+              ${bodyHtml}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f8fafc;padding:20px 40px;border-top:1px solid #e2e8f0;text-align:center;">
+              <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.6;">
+                Email này được gửi tự động từ hệ thống <strong>Từ điển Mở</strong>.<br/>
+                Vui lòng không trả lời email này.
+              </p>
+              <p style="margin:8px 0 0;color:#94a3b8;font-size:11px;">
+                © ${new Date().getFullYear()} Từ điển Mở — Nền tảng từ điển mở cho cộng đồng
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+/** Highlighted info box. */
+const infoBox = (bgColor, borderColor, content) => `
+<div style="background:${bgColor};border-left:4px solid ${borderColor};border-radius:6px;
+            padding:16px 20px;margin:20px 0;">
+  ${content}
+</div>`;
+
+/** Centred CTA button. */
+const ctaButton = (href, label, color) => `
+<div style="text-align:center;margin:28px 0;">
+  <a href="${href}"
+     style="display:inline-block;padding:14px 36px;background:${color};color:#ffffff;
+            text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;
+            letter-spacing:0.3px;">
+    ${label}
+  </a>
+</div>`;
+
+/** Fallback plain-text link row. */
+const fallbackLink = (url) => `
+<p style="color:#64748b;font-size:13px;margin:12px 0 0;">
+  Hoặc sao chép liên kết này vào trình duyệt:
+</p>
+<p style="color:#3b82f6;word-break:break-all;font-size:13px;margin:4px 0 0;">${url}</p>`;
+
+/** Standard greeting line. */
+const greeting = (name) =>
+  `<p style="color:#334155;font-size:15px;line-height:1.7;margin:0 0 12px;">
+    Xin chào <strong>${name}</strong>,
+  </p>`;
+
+/** Standard sign-off. */
+const signOff = () =>
+  `<p style="color:#334155;font-size:14px;margin:28px 0 0;line-height:1.6;">
+    Trân trọng,<br/><strong>Đội ngũ Từ điển Mở</strong>
+  </p>`;
+
+// ─────────────────────────────────────────────────────────
+//  Email senders
+// ─────────────────────────────────────────────────────────
+
+/**
+ * Gửi email xác thực tài khoản khi đăng ký.
  */
 exports.sendVerificationEmail = async (
   userEmail,
   userName,
-  verificationUrl,
+  verificationToken,
 ) => {
   try {
-    const transporter = await getEmailTransporter();
-    const emailFrom = await SystemConfig.getValue(
-      "email_from",
-      process.env.EMAIL_FROM,
-    );
-    const emailFromName = await SystemConfig.getValue(
-      "email_from_name",
-      "Từ điển Mở",
-    );
+    const { transporter, from } = await getMailConfig();
+    const url = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
 
-    const mailOptions = {
-      from: `${emailFromName} <${emailFrom}>`,
+    const body = `
+      ${greeting(userName)}
+      <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
+        Cảm ơn bạn đã đăng ký tài khoản tại <strong>Từ điển Mở</strong>.
+        Nhấn nút bên dưới để xác thực địa chỉ email và kích hoạt tài khoản.
+      </p>
+      ${ctaButton(url, " Xác thực email", "#16a34a")}
+      ${fallbackLink(url)}
+      ${infoBox(
+        "#fef9c3",
+        "#f59e0b",
+        `<p style="margin:0;color:#92400e;font-size:13px;">
+           Liên kết này sẽ hết hạn sau <strong>24 giờ</strong>.
+          Nếu bạn không thực hiện đăng ký này, vui lòng bỏ qua email này.
+        </p>`,
+      )}
+      ${signOff()}`;
+
+    await transporter.sendMail({
+      from,
       to: userEmail,
-      subject: "Xác thực tài khoản - Từ điển Mở",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-          <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #4CAF50; margin: 0;">Từ điển Mở</h1>
-            </div>
-            
-            <h2 style="color: #333;">Xin chào ${userName}!</h2>
-            
-            <p style="color: #666; line-height: 1.6;">
-              Cảm ơn bạn đã đăng ký tài khoản tại <strong>Từ điển Mở</strong>. 
-              Vui lòng xác thực địa chỉ email của bạn để hoàn tất quá trình đăng ký và trải nghiệm đầy đủ các tính năng.
-            </p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.CLIENT_URL}/verify-email?token=${verificationUrl}" 
-                 style="display: inline-block; padding: 15px 40px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                Xác thực email
-              </a>
-            </div>
-            
-            <p style="color: #666; font-size: 14px; line-height: 1.6;">
-              Hoặc sao chép và dán liên kết sau vào trình duyệt:
-            </p>
-            <p style="color: #4CAF50; word-break: break-all; font-size: 14px;">
-              ${process.env.CLIENT_URL}/verify-email?token=${verificationUrl}
-            </p>
-            
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-              <p style="color: #999; font-size: 13px; line-height: 1.6;">
-                <strong>Lưu ý:</strong> Liên kết này sẽ hết hạn sau 24 giờ. 
-                Nếu bạn không thực hiện đăng ký này, vui lòng bỏ qua email này.
-              </p>
-            </div>
-            
-            <div style="margin-top: 30px; text-align: center; color: #999; font-size: 12px;">
-              <p>© 2026 Từ điển Mở - Nền tảng từ điển mở cho cộng đồng</p>
-            </div>
-          </div>
-        </div>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`Verification email sent to ${userEmail}`);
+      subject: "Xác thực tài khoản — Từ điển Mở",
+      html: buildEmailHtml("Xác thực tài khoản", "#16a34a", body),
+    });
+    console.log(`[Email] Verification sent → ${userEmail}`);
   } catch (error) {
-    console.error("Error sending verification email:", error);
+    console.error("[Email] sendVerificationEmail error:", error);
     throw error;
   }
 };
 
 /**
- * Gửi email chào mừng (sau khi verify)
+ * Gửi email chào mừng sau khi xác thực thành công.
  */
 exports.sendWelcomeEmail = async (userEmail, userName) => {
   try {
-    const transporter = await getEmailTransporter();
-    const emailFrom = await SystemConfig.getValue(
-      "email_from",
-      process.env.EMAIL_FROM,
-    );
-    const emailFromName = await SystemConfig.getValue(
-      "email_from_name",
-      "Từ điển Mở",
-    );
+    const { transporter, from } = await getMailConfig();
 
-    const mailOptions = {
-      from: `${emailFromName} <${emailFrom}>`,
+    const body = `
+      ${greeting(userName)}
+      <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
+        Tài khoản của bạn đã được xác thực thành công.
+        Hãy bắt đầu khám phá <strong>Từ điển Mở</strong>!
+      </p>
+      ${infoBox(
+        "#f0fdf4",
+        "#16a34a",
+        `
+        <p style="margin:0 0 8px;color:#166534;font-weight:700;font-size:14px;"> Bạn có thể ngay bây giờ:</p>
+        <ul style="margin:0;padding-left:20px;color:#166534;font-size:14px;line-height:1.8;">
+          <li>Tra cứu hàng nghìn thuật ngữ chuyên ngành</li>
+          <li>Đóng góp từ mới hoặc cải thiện định nghĩa hiện có</li>
+          <li>Tham gia thảo luận cùng cộng đồng</li>
+        </ul>`,
+      )}
+      ${ctaButton(`${process.env.CLIENT_URL}`, " Khám phá ngay", "#2563eb")}
+      ${signOff()}`;
+
+    await transporter.sendMail({
+      from,
       to: userEmail,
-      subject: "Chào mừng bạn đến với Từ điển Mở!",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #4CAF50;">Xin chào ${userName}!</h2>
-          <p>Cảm ơn bạn đã xác thực tài khoản tại <strong>Từ điển Mở</strong>.</p>
-          <p>Bạn có thể bắt đầu:</p>
-          <ul>
-            <li>Tra cứu từ vựng</li>
-            <li>Đóng góp từ mới</li>
-            <li>Tham gia cộng đồng xây dựng từ điển</li>
-          </ul>
-          <p>Nếu bạn cần hỗ trợ, vui lòng liên hệ với chúng tôi.</p>
-          <p style="margin-top: 30px;">Trân trọng,<br/>Đội ngũ Từ điển Mở</p>
-        </div>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`Welcome email sent to ${userEmail}`);
+      subject: "Chào mừng đến với Từ điển Mở!",
+      html: buildEmailHtml("Chào mừng bạn!", "#2563eb", body),
+    });
+    console.log(`[Email] Welcome sent  ${userEmail}`);
   } catch (error) {
-    console.error("Error sending welcome email:", error);
-    // Không throw error để không làm gián đoạn quá trình đăng ký
+    // Non-critical — do not rethrow
+    console.error("[Email] sendWelcomeEmail error:", error);
   }
 };
 
 /**
- * Gửi email khi người dùng đăng kí thành công để kích hoạt tài khoản (deprecated - sử dụng sendVerificationEmail thay thế)
+ * Gửi email đặt lại mật khẩu.
  */
-exports.sendEmailActiveAccount = async (userEmail, userName) => {
+exports.sendPasswordResetEmail = async (userEmail, userName, resetUrl) => {
   try {
-    const transporter = await getEmailTransporter();
-    const emailFrom = await SystemConfig.getValue(
-      "email_from",
-      process.env.EMAIL_FROM || emailUser,
-    );
+    const { transporter, from } = await getMailConfig();
 
-    const mailOptions = {
-      from: emailFrom,
+    const body = `
+      ${greeting(userName)}
+      <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
+        Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.
+        Nhấn nút bên dưới để tạo mật khẩu mới.
+      </p>
+      ${ctaButton(resetUrl, " Đặt lại mật khẩu", "#7c3aed")}
+      ${fallbackLink(resetUrl)}
+      ${infoBox(
+        "#fef2f2",
+        "#ef4444",
+        `
+        <p style="margin:0;color:#991b1b;font-size:13px;">
+           Liên kết này có hiệu lực trong <strong>30 phút</strong>.
+          Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.
+        </p>`,
+      )}
+      ${signOff()}`;
+
+    await transporter.sendMail({
+      from,
       to: userEmail,
-      subject: "Chào mừng bạn đến với Từ điển Mở!",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #4CAF50;">Xin chào ${userName}!</h2>
-          <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong>Từ điển Mở</strong>.</p>
-          <p>Bạn có thể bắt đầu:</p>
-          <ul>
-            <li>Tra cứu từ vựng</li>
-            <li>Đóng góp từ mới</li>
-            <li>Tham gia cộng đồng xây dựng từ điển</li>
-          </ul>
-          <p>Nếu bạn cần hỗ trợ, vui lòng liên hệ với chúng tôi.</p>
-          <p style="margin-top: 30px;">Trân trọng,<br/>Đội ngũ Từ điển Mở</p>
-        </div>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`Welcome email sent to ${userEmail}`);
+      subject: "Đặt lại mật khẩu — Từ điển Mở",
+      html: buildEmailHtml("Đặt lại mật khẩu", "#7c3aed", body),
+    });
+    console.log(`[Email] PasswordReset sent ${userEmail}`);
   } catch (error) {
-    console.error("Error sending welcome email:", error);
-    // Không throw error để không làm gián đoạn quá trình đăng ký
+    console.error("[Email] sendPasswordResetEmail error:", error);
+    throw new Error(
+      "Không thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.",
+    );
   }
 };
 
 /**
- * Gửi email thông báo cho user khi đóng góp được duyệt
+ * Gửi email thông báo đóng góp được phê duyệt.
  */
 exports.sendContributionApprovedEmail = async (
   userEmail,
@@ -205,41 +278,53 @@ exports.sendContributionApprovedEmail = async (
   contributionData,
 ) => {
   try {
-    const transporter = await getEmailTransporter();
-    const emailFrom = await SystemConfig.getValue(
-      "email_from",
-      process.env.EMAIL_FROM,
-    );
+    const { transporter, from } = await getMailConfig();
+    const typeLabel =
+      contributionData.type === "new_term"
+        ? "Thêm từ mới"
+        : contributionData.type === "edit_term"
+          ? "Chỉnh sửa từ"
+          : "Đóng góp";
 
-    const mailOptions = {
-      from: emailFrom,
+    const body = `
+      ${greeting(userName)}
+      <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
+        Đóng góp của bạn đã được <strong>phê duyệt</strong> thành công.
+        Cảm ơn bạn đã đóng góp cho cộng đồng!
+      </p>
+      ${infoBox(
+        "#f0fdf4",
+        "#16a34a",
+        `
+        <p style="margin:0 0 6px;font-weight:700;color:#166534;font-size:14px;"> Thông tin đóng góp</p>
+        <p style="margin:4px 0;color:#166534;font-size:14px;"><strong>Loại:</strong> ${typeLabel}</p>
+        ${
+          contributionData.termName
+            ? `<p style="margin:4px 0;color:#166534;font-size:14px;"><strong>Thuật ngữ:</strong> ${contributionData.termName}</p>`
+            : ""
+        }
+        ${
+          contributionData.moderatorNote
+            ? `<p style="margin:4px 0;color:#166534;font-size:14px;"><strong>Ghi chú kiểm duyệt:</strong> ${contributionData.moderatorNote}</p>`
+            : ""
+        }`,
+      )}
+      ${signOff()}`;
+
+    await transporter.sendMail({
+      from,
       to: userEmail,
-      subject: "Đóng góp của bạn đã được phê duyệt",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #4CAF50;">Chúc mừng ${userName}!</h2>
-          <p>Đóng góp của bạn đã được phê duyệt thành công.</p>
-          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="margin-top: 0;">Thông tin đóng góp:</h3>
-            <p><strong>Loại:</strong> ${contributionData.type === "new" ? "Thêm từ mới" : contributionData.type === "edit" ? "Chỉnh sửa từ" : "Báo cáo lỗi"}</p>
-            ${contributionData.termName ? `<p><strong>Từ:</strong> ${contributionData.termName}</p>` : ""}
-            ${contributionData.moderatorNote ? `<p><strong>Ghi chú:</strong> ${contributionData.moderatorNote}</p>` : ""}
-          </div>
-          <p>Cảm ơn bạn đã đóng góp vào việc xây dựng Từ điển Mở!</p>
-          <p style="margin-top: 30px;">Trân trọng,<br/>Đội ngũ Từ điển Mở</p>
-        </div>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`Contribution approved email sent to ${userEmail}`);
+      subject: "Đóng góp của bạn đã được phê duyệt ",
+      html: buildEmailHtml("Đóng góp được phê duyệt", "#16a34a", body),
+    });
+    console.log(`[Email] ContributionApproved sent  ${userEmail}`);
   } catch (error) {
-    console.error("Error sending contribution approved email:", error);
+    console.error("[Email] sendContributionApprovedEmail error:", error);
   }
 };
 
 /**
- * Gửi email thông báo cho user khi đóng góp bị từ chối
+ * Gửi email thông báo đóng góp bị từ chối.
  */
 exports.sendContributionRejectedEmail = async (
   userEmail,
@@ -247,41 +332,53 @@ exports.sendContributionRejectedEmail = async (
   contributionData,
 ) => {
   try {
-    const transporter = await getEmailTransporter();
-    const emailFrom = await SystemConfig.getValue(
-      "email_from",
-      process.env.EMAIL_FROM,
-    );
+    const { transporter, from } = await getMailConfig();
+    const typeLabel =
+      contributionData.type === "new_term"
+        ? "Thêm từ mới"
+        : contributionData.type === "edit_term"
+          ? "Chỉnh sửa từ"
+          : "Đóng góp";
 
-    const mailOptions = {
-      from: emailFrom,
+    const body = `
+      ${greeting(userName)}
+      <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
+        Đóng góp của bạn <strong>chưa được chấp nhận</strong> lần này.
+        Bạn có thể xem xét lại và gửi đóng góp mới với nội dung phù hợp hơn.
+      </p>
+      ${infoBox(
+        "#fff7ed",
+        "#f97316",
+        `
+        <p style="margin:0 0 6px;font-weight:700;color:#9a3412;font-size:14px;">Thông tin đóng góp</p>
+        <p style="margin:4px 0;color:#9a3412;font-size:14px;"><strong>Loại:</strong> ${typeLabel}</p>
+        ${
+          contributionData.termName
+            ? `<p style="margin:4px 0;color:#9a3412;font-size:14px;"><strong>Thuật ngữ:</strong> ${contributionData.termName}</p>`
+            : ""
+        }
+        ${
+          contributionData.moderatorNote
+            ? `<p style="margin:4px 0;color:#9a3412;font-size:14px;"><strong>Lý do từ chối:</strong> ${contributionData.moderatorNote}</p>`
+            : ""
+        }`,
+      )}
+      ${signOff()}`;
+
+    await transporter.sendMail({
+      from,
       to: userEmail,
       subject: "Đóng góp của bạn chưa được chấp nhận",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #FF9800;">Xin chào ${userName},</h2>
-          <p>Đóng góp của bạn chưa được chấp nhận.</p>
-          <div style="background-color: #fff3e0; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #FF9800;">
-            <h3 style="margin-top: 0;">Thông tin đóng góp:</h3>
-            <p><strong>Loại:</strong> ${contributionData.type === "new" ? "Thêm từ mới" : contributionData.type === "edit" ? "Chỉnh sửa từ" : "Báo cáo lỗi"}</p>
-            ${contributionData.termName ? `<p><strong>Từ:</strong> ${contributionData.termName}</p>` : ""}
-            ${contributionData.moderatorNote ? `<p><strong>Lý do:</strong> ${contributionData.moderatorNote}</p>` : ""}
-          </div>
-          <p>Bạn có thể xem xét và gửi lại đóng góp với nội dung phù hợp hơn.</p>
-          <p style="margin-top: 30px;">Trân trọng,<br/>Đội ngũ Từ điển Mở</p>
-        </div>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`Contribution rejected email sent to ${userEmail}`);
+      html: buildEmailHtml("Đóng góp chưa được chấp nhận", "#f97316", body),
+    });
+    console.log(`[Email] ContributionRejected sent → ${userEmail}`);
   } catch (error) {
-    console.error("Error sending contribution rejected email:", error);
+    console.error("[Email] sendContributionRejectedEmail error:", error);
   }
 };
 
 /**
- * Gửi email thông báo cho admin khi có đóng góp mới
+ * Gửi thông báo tới admin / moderator khi có đóng góp mới.
  */
 exports.sendNewContributionNotificationToAdmins = async (
   contributionData,
@@ -289,61 +386,77 @@ exports.sendNewContributionNotificationToAdmins = async (
 ) => {
   try {
     const User = require("../models/User");
-
-    // Lấy danh sách admin và moderator
     const admins = await User.find({
       role: { $in: ["admin", "moderator"] },
       status: "active",
       emailVerified: true,
     }).select("email fullName");
 
-    if (admins.length === 0) {
-      console.log("No admins to notify");
+    if (!admins.length) {
+      console.log("[Email] No admins to notify");
       return;
     }
 
-    const transporter = await getEmailTransporter();
-    const emailFrom = await SystemConfig.getValue(
-      "email_from",
-      process.env.EMAIL_FROM,
-    );
+    const { transporter, from } = await getMailConfig();
+    const typeLabel =
+      contributionData.type === "new_term" ? "Thêm từ mới" : "Chỉnh sửa từ";
 
     for (const admin of admins) {
-      const mailOptions = {
-        from: emailFrom,
-        to: admin.email,
-        subject: "Có đóng góp mới cần kiểm duyệt",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2196F3;">Đóng góp mới cần kiểm duyệt</h2>
-            <p>Xin chào ${admin.fullName},</p>
-            <p>Có một đóng góp mới từ người dùng cần được kiểm duyệt.</p>
-            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #2196F3;">
-              <h3 style="margin-top: 0;">Thông tin đóng góp:</h3>
-              <p><strong>Người đóng góp:</strong> ${contributor.fullName} (${contributor.email})</p>
-              <p><strong>Loại:</strong> ${contributionData.type === "new" ? "Thêm từ mới" : contributionData.type === "edit" ? "Chỉnh sửa từ" : "Báo cáo lỗi"}</p>
-              ${contributionData.term ? `<p><strong>Từ:</strong> ${contributionData.term}</p>` : ""}
-              ${contributionData.definition ? `<p><strong>Định nghĩa:</strong> ${contributionData.definition.substring(0, 100)}...</p>` : ""}
-            </div>
-            <p>Vui lòng đăng nhập vào hệ thống để kiểm duyệt đóng góp này.</p>
-            <p style="margin-top: 30px;">Trân trọng,<br/>Hệ thống Từ điển Mở</p>
-          </div>
-        `,
-      };
+      const body = `
+        ${greeting(admin.fullName)}
+        <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
+          Có một đóng góp mới cần được kiểm duyệt.
+        </p>
+        ${infoBox(
+          "#eff6ff",
+          "#3b82f6",
+          `
+          <p style="margin:0 0 6px;font-weight:700;color:#1e40af;font-size:14px;"> Thông tin đóng góp</p>
+          <p style="margin:4px 0;color:#1e40af;font-size:14px;"><strong>Người đóng góp:</strong> ${contributor.fullName} (${contributor.email})</p>
+          <p style="margin:4px 0;color:#1e40af;font-size:14px;"><strong>Loại:</strong> ${typeLabel}</p>
+          ${
+            contributionData.term.vi ||
+            contributionData.term.en ||
+            contributionData.termName
+              ? `<p style="margin:4px 0;color:#1e40af;font-size:14px;"><strong>Thuật ngữ:</strong> ${contributionData.term.vi || contributionData.term.en || contributionData.termName}</p>`
+              : ""
+          }
+          ${
+            contributionData.definition.vi ||
+            contributionData.definition.en ||
+            contributionData.definition.lo
+              ? `<p style="margin:4px 0;color:#1e40af;font-size:14px;"><strong>Định nghĩa:</strong> ${contributionData.definition.vi || contributionData.definition.en || contributionData.definition.lo.substring(0, 120)}…</p>`
+              : ""
+          }`,
+        )}
+        ${ctaButton(
+          `${process.env.CLIENT_URL}/admin/moderation/contributions`,
+          " Kiểm duyệt ngay",
+          "#2563eb",
+        )}
+        ${signOff()}`;
 
-      await transporter.sendMail(mailOptions);
+      await transporter.sendMail({
+        from,
+        to: admin.email,
+        subject: " Có đóng góp mới cần kiểm duyệt",
+        html: buildEmailHtml("Đóng góp mới cần kiểm duyệt", "#2563eb", body),
+      });
     }
 
     console.log(
-      `New contribution notification sent to ${admins.length} admins`,
+      `[Email] NewContribution notification sent → ${admins.length} admins`,
     );
   } catch (error) {
-    console.error("Error sending admin notification:", error);
+    console.error(
+      "[Email] sendNewContributionNotificationToAdmins error:",
+      error,
+    );
   }
 };
 
 /**
- * Gửi email thông báo cho admin khi có báo cáo mới
+ * Gửi thông báo tới admin / moderator khi có báo cáo mới.
  */
 exports.sendNewReportNotificationToAdmins = async (
   reportData,
@@ -352,109 +465,108 @@ exports.sendNewReportNotificationToAdmins = async (
 ) => {
   try {
     const User = require("../models/User");
-
-    // Lấy danh sách admin và moderator
     const admins = await User.find({
       role: { $in: ["admin", "moderator"] },
       status: "active",
       emailVerified: true,
     }).select("email fullName");
 
-    if (admins.length === 0) {
-      console.log("No admins to notify");
+    if (!admins.length) {
+      console.log("[Email] No admins to notify");
       return;
     }
 
-    const transporter = await getEmailTransporter();
-    const emailFrom = await SystemConfig.getValue(
-      "email_from",
-      process.env.EMAIL_FROM,
-    );
+    const { transporter, from } = await getMailConfig();
+    const contentTypeLabel =
+      reportData.contentType === "term"
+        ? "Từ vựng"
+        : reportData.contentType === "comment"
+          ? "Bình luận"
+          : "Khác";
 
     for (const admin of admins) {
-      const mailOptions = {
-        from: emailFrom,
+      const body = `
+        ${greeting(admin.fullName)}
+        <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
+          Có một báo cáo mới từ người dùng cần được xử lý.
+        </p>
+        ${infoBox(
+          "#fef2f2",
+          "#ef4444",
+          `
+          <p style="margin:0 0 6px;font-weight:700;color:#991b1b;font-size:14px;"> Thông tin báo cáo</p>
+          <p style="margin:4px 0;color:#991b1b;font-size:14px;"><strong>Người báo cáo:</strong> ${reporter.fullName} (${reporter.email})</p>
+          <p style="margin:4px 0;color:#991b1b;font-size:14px;"><strong>Loại nội dung:</strong> ${contentTypeLabel}</p>
+          <p style="margin:4px 0;color:#991b1b;font-size:14px;"><strong>Lý do:</strong> ${reportData.reason}</p>
+          ${
+            reportData.description
+              ? `<p style="margin:4px 0;color:#991b1b;font-size:14px;"><strong>Mô tả:</strong> ${String(reportData.description).substring(0, 120)}…</p>`
+              : ""
+          }`,
+        )}
+        ${ctaButton(`${process.env.CLIENT_URL}/admin/moderation`, " Xử lý ngay", "#dc2626")}
+        ${signOff()}`;
+
+      await transporter.sendMail({
+        from,
         to: admin.email,
         subject: "Có báo cáo mới cần xử lý",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #f44336;">Báo cáo mới cần xử lý</h2>
-            <p>Xin chào ${admin.fullName},</p>
-            <p>Có một báo cáo mới từ người dùng cần được xử lý.</p>
-            <div style="background-color: #ffebee; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #f44336;">
-              <h3 style="margin-top: 0;">Thông tin báo cáo:</h3>
-              <p><strong>Người báo cáo:</strong> ${reporter.fullName} (${reporter.email})</p>
-              <p><strong>Loại nội dung:</strong> ${reportData.contentType === "term" ? "Từ vựng" : reportData.contentType === "comment" ? "Bình luận" : "Khác"}</p>
-              <p><strong>Lý do:</strong> ${reportData.reason}</p>
-              ${reportData.description ? `<p><strong>Mô tả:</strong> ${reportData.description.substring(0, 100)}...</p>` : ""}
-            </div>
-            <p>Vui lòng đăng nhập vào hệ thống để xử lý báo cáo này.</p>
-            <p style="margin-top: 30px;">Trân trọng,<br/>Hệ thống Từ điển Mở</p>
-          </div>
-        `,
-      };
-
-      await transporter.sendMail(mailOptions);
+        html: buildEmailHtml("Báo cáo mới cần xử lý", "#dc2626", body),
+      });
     }
 
-    console.log(`New report notification sent to ${admins.length} admins`);
+    console.log(
+      `[Email] NewReport notification sent → ${admins.length} admins`,
+    );
   } catch (error) {
-    console.error("Error sending report notification:", error);
+    console.error("[Email] sendNewReportNotificationToAdmins error:", error);
   }
 };
 
 /**
- * Gửi email thông báo kết quả xử lý báo cáo cho người báo cáo
+ * Gửi email kết quả xử lý báo cáo cho người báo cáo.
  */
 exports.sendReportResolvedEmail = async (userEmail, userName, reportData) => {
   try {
-    const transporter = await getEmailTransporter();
-    const emailFrom = await SystemConfig.getValue(
-      "email_from",
-      process.env.EMAIL_FROM,
-    );
+    const { transporter, from } = await getMailConfig();
+    const isResolved = reportData.status === "resolved";
+    const statusLabel = isResolved ? "Đã xử lý" : "Đã đóng";
+    const accentColor = isResolved ? "#16a34a" : "#64748b";
 
-    const mailOptions = {
-      from: emailFrom,
+    const body = `
+      ${greeting(userName)}
+      <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
+        Báo cáo của bạn đã được xử lý.
+        Cảm ơn bạn đã giúp chúng tôi cải thiện chất lượng nội dung.
+      </p>
+      ${infoBox(
+        "#f8fafc",
+        "#94a3b8",
+        `
+        <p style="margin:0 0 6px;font-weight:700;color:#334155;font-size:14px;"> Kết quả xử lý</p>
+        <p style="margin:4px 0;color:#334155;font-size:14px;"><strong>Trạng thái:</strong> ${statusLabel}</p>
+        ${
+          reportData.moderatorNote
+            ? `<p style="margin:4px 0;color:#334155;font-size:14px;"><strong>Ghi chú:</strong> ${reportData.moderatorNote}</p>`
+            : ""
+        }`,
+      )}
+      ${signOff()}`;
+
+    await transporter.sendMail({
+      from,
       to: userEmail,
       subject: "Báo cáo của bạn đã được xử lý",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #4CAF50;">Xin chào ${userName},</h2>
-          <p>Báo cáo của bạn đã được xử lý.</p>
-          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="margin-top: 0;">Thông tin xử lý:</h3>
-            <p><strong>Trạng thái:</strong> ${reportData.status === "resolved" ? "Đã xử lý" : "Đã đóng"}</p>
-            ${reportData.moderatorNote ? `<p><strong>Ghi chú:</strong> ${reportData.moderatorNote}</p>` : ""}
-          </div>
-          <p>Cảm ơn bạn đã giúp chúng tôi cải thiện chất lượng nội dung.</p>
-          <p style="margin-top: 30px;">Trân trọng,<br/>Đội ngũ Từ điển Mở</p>
-        </div>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`Report resolved email sent to ${userEmail}`);
+      html: buildEmailHtml("Kết quả xử lý báo cáo", accentColor, body),
+    });
+    console.log(`[Email] ReportResolved sent → ${userEmail}`);
   } catch (error) {
-    console.error("Error sending report resolved email:", error);
+    console.error("[Email] sendReportResolvedEmail error:", error);
   }
 };
 
 /**
- * Kiểm tra cấu hình email
- */
-exports.testEmailConfiguration = async () => {
-  try {
-    const transporter = await getEmailTransporter();
-    await transporter.verify();
-    return { success: true, message: "Email configuration is valid" };
-  } catch (error) {
-    return { success: false, message: error.message };
-  }
-};
-
-/**
- * Gửi email thông báo khi bình luận được kiểm duyệt
+ * Gửi email thông báo kết quả kiểm duyệt bình luận.
  */
 exports.sendCommentModeratedEmail = async (
   userEmail,
@@ -462,46 +574,63 @@ exports.sendCommentModeratedEmail = async (
   commentData,
 ) => {
   try {
-    const transporter = await getEmailTransporter();
-    const emailFrom = await SystemConfig.getValue(
-      "email_from",
-      process.env.EMAIL_FROM,
-    );
-
+    const { transporter, from } = await getMailConfig();
     const isApproved = commentData.status === "approved";
-    const statusText = isApproved ? "được duyệt" : "bị từ chối";
-    const statusColor = isApproved ? "#4CAF50" : "#FF9800";
+    const accentColor = isApproved ? "#16a34a" : "#f97316";
+    const statusLabel = isApproved ? "được duyệt " : "bị từ chối ";
+    const boxBg = isApproved ? "#f0fdf4" : "#fff7ed";
+    const textColor = isApproved ? "#166534" : "#9a3412";
 
-    const mailOptions = {
-      from: emailFrom,
+    const preview = commentData.commentContent
+      ? String(commentData.commentContent).substring(0, 200) +
+        (commentData.commentContent.length > 200 ? "…" : "")
+      : "";
+
+    const body = `
+      ${greeting(userName)}
+      <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
+        Bình luận của bạn đã <strong>${statusLabel}</strong>.
+      </p>
+      ${infoBox(
+        boxBg,
+        accentColor,
+        `
+        <p style="margin:0 0 6px;font-weight:700;color:${textColor};font-size:14px;"> Chi tiết bình luận</p>
+        <p style="margin:4px 0;color:${textColor};font-size:14px;"><strong>Thuật ngữ:</strong> ${commentData.termName}</p>
+        ${
+          preview
+            ? `<p style="margin:4px 0;color:${textColor};font-size:14px;"><strong>Nội dung:</strong> ${preview}</p>`
+            : ""
+        }
+        ${
+          commentData.moderatorNote
+            ? `<p style="margin:4px 0;color:${textColor};font-size:14px;"><strong>Ghi chú:</strong> ${commentData.moderatorNote}</p>`
+            : ""
+        }`,
+      )}
+      <p style="color:#475569;font-size:14px;line-height:1.7;margin:12px 0 0;">
+        ${
+          isApproved
+            ? "Cảm ơn bạn đã đóng góp cho cộng đồng! 🎉"
+            : "Bạn có thể chỉnh sửa và gửi lại bình luận với nội dung phù hợp hơn."
+        }
+      </p>
+      ${signOff()}`;
+
+    await transporter.sendMail({
+      from,
       to: userEmail,
-      subject: `Bình luận của bạn đã ${statusText}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: ${statusColor};">Xin chào ${userName},</h2>
-          <p>Bình luận của bạn đã ${statusText}.</p>
-          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid ${statusColor};">
-            <h3 style="margin-top: 0;">Thông tin bình luận:</h3>
-            <p><strong>Thuật ngữ:</strong> ${commentData.termName}</p>
-            <p><strong>Nội dung:</strong> ${commentData.commentContent ? commentData.commentContent.substring(0, 200) : ""}${commentData.commentContent && commentData.commentContent.length > 200 ? "..." : ""}</p>
-            <p><strong>Trạng thái:</strong> ${isApproved ? "Đã duyệt" : "Bị từ chối"}</p>
-            ${commentData.moderatorNote ? `<p><strong>Ghi chú:</strong> ${commentData.moderatorNote}</p>` : ""}
-          </div>
-          ${!isApproved ? "<p>Bạn có thể xem lại và chỉnh sửa nội dung bình luận cho phù hợp hơn.</p>" : "<p>Cảm ơn bạn đã đóng góp cho cộng đồng!</p>"}
-          <p style="margin-top: 30px;">Trân trọng,<br/>Đội ngũ Từ điển Mở</p>
-        </div>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`Comment moderation email sent to ${userEmail}`);
+      subject: `Bình luận của bạn đã ${statusLabel}`,
+      html: buildEmailHtml(`Bình luận ${statusLabel}`, accentColor, body),
+    });
+    console.log(`[Email] CommentModerated sent → ${userEmail}`);
   } catch (error) {
-    console.error("Error sending comment moderation email:", error);
+    console.error("[Email] sendCommentModeratedEmail error:", error);
   }
 };
 
 /**
- * Gửi email thông báo cho moderator khi có nội dung mới cần kiểm duyệt
+ * Gửi thông báo tới moderator được phân công và admin khi có nội dung mới cần duyệt.
  */
 exports.sendNewContentNotificationToModerators = async (
   contentType,
@@ -511,117 +640,83 @@ exports.sendNewContentNotificationToModerators = async (
 ) => {
   try {
     const User = require("../models/User");
-
-    // Tìm moderators được gán cho danh mục
-    const moderators = await User.find({
-      role: "moderator",
-      status: "active",
-      "moderationPermissions.categories": categoryId,
-    }).select("email fullName");
-
-    // Cũng gửi cho admin
-    const admins = await User.find({
-      role: "admin",
-      status: "active",
-    }).select("email fullName");
+    const [moderators, admins] = await Promise.all([
+      User.find({
+        role: "moderator",
+        status: "active",
+        "moderationPermissions.categories": categoryId,
+      }).select("email fullName"),
+      User.find({ role: "admin", status: "active" }).select("email fullName"),
+    ]);
 
     const allRecipients = [...moderators, ...admins];
-
-    if (allRecipients.length === 0) {
-      console.log("No moderators/admins to notify");
+    if (!allRecipients.length) {
+      console.log("[Email] No moderators/admins to notify");
       return;
     }
 
-    const contentTypeLabels = {
-      contribution: "Đóng góp",
-      comment: "Bình luận",
-      report: "Báo xấu",
-    };
-
-    const transporter = await getEmailTransporter();
-    const emailFrom = await SystemConfig.getValue(
-      "email_from",
-      process.env.EMAIL_FROM,
-    );
+    const { transporter, from } = await getMailConfig();
+    const typeLabel =
+      { contribution: "Đóng góp", comment: "Bình luận", report: "Báo cáo" }[
+        contentType
+      ] || "Nội dung";
 
     for (const recipient of allRecipients) {
-      const mailOptions = {
-        from: emailFrom,
-        to: recipient.email,
-        subject: `${contentTypeLabels[contentType] || "Nội dung"} mới cần kiểm duyệt`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2196F3;">${contentTypeLabels[contentType] || "Nội dung"} mới cần kiểm duyệt</h2>
-            <p>Xin chào ${recipient.fullName},</p>
-            <p>Có ${contentTypeLabels[contentType]?.toLowerCase() || "nội dung"} mới từ người dùng <strong>${contributor?.fullName || "Ẩn danh"}</strong> cần được kiểm duyệt.</p>
-            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #2196F3;">
-              ${contentData.termName ? `<p><strong>Thuật ngữ:</strong> ${contentData.termName}</p>` : ""}
-              ${contentData.content ? `<p><strong>Nội dung:</strong> ${contentData.content.substring(0, 200)}...</p>` : ""}
-              ${contentData.reason ? `<p><strong>Lý do:</strong> ${contentData.reason}</p>` : ""}
-            </div>
-            <p>Vui lòng đăng nhập vào hệ thống để kiểm duyệt.</p>
-            <p style="margin-top: 30px;">Trân trọng,<br/>Hệ thống Từ điển Mở</p>
-          </div>
-        `,
-      };
+      const body = `
+        ${greeting(recipient.fullName)}
+        <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
+          Có <strong>${typeLabel.toLowerCase()}</strong> mới từ người dùng
+          <strong>${contributor?.fullName || "Ẩn danh"}</strong> cần được kiểm duyệt.
+        </p>
+        ${infoBox(
+          "#eff6ff",
+          "#3b82f6",
+          `
+          <p style="margin:0 0 6px;font-weight:700;color:#1e40af;font-size:14px;">📋 Chi tiết</p>
+          ${
+            contentData.termName
+              ? `<p style="margin:4px 0;color:#1e40af;font-size:14px;"><strong>Thuật ngữ:</strong> ${contentData.termName}</p>`
+              : ""
+          }
+          ${
+            contentData.content
+              ? `<p style="margin:4px 0;color:#1e40af;font-size:14px;"><strong>Nội dung:</strong> ${String(contentData.content).substring(0, 200)}…</p>`
+              : ""
+          }
+          ${
+            contentData.reason
+              ? `<p style="margin:4px 0;color:#1e40af;font-size:14px;"><strong>Lý do:</strong> ${contentData.reason}</p>`
+              : ""
+          }`,
+        )}
+        ${ctaButton(`${process.env.CLIENT_URL}/admin/moderation`, " Kiểm duyệt ngay", "#2563eb")}
+        ${signOff()}`;
 
-      await transporter.sendMail(mailOptions);
+      await transporter.sendMail({
+        from,
+        to: recipient.email,
+        subject: `${typeLabel} mới cần kiểm duyệt`,
+        html: buildEmailHtml(
+          `${typeLabel} mới cần kiểm duyệt`,
+          "#2563eb",
+          body,
+        ),
+      });
     }
 
     console.log(
-      `New ${contentType} notification sent to ${allRecipients.length} recipients`,
+      `[Email] New${contentType} notification sent → ${allRecipients.length} recipients`,
     );
   } catch (error) {
-    console.error(`Error sending ${contentType} notification:`, error);
-  }
-};
-
-/**
- * Gửi email đặt lại mật khẩu
- */
-exports.sendPasswordResetEmail = async (userEmail, userName, resetUrl) => {
-  try {
-    const transporter = await getEmailTransporter();
-    const emailFrom = await SystemConfig.getValue(
-      "email_from",
-      process.env.EMAIL_FROM,
-    );
-
-    const mailOptions = {
-      from: emailFrom,
-      to: userEmail,
-      subject: "Đặt lại mật khẩu - Từ điển Mở",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #667eea;">Đặt lại mật khẩu</h2>
-          <p>Xin chào ${userName},</p>
-          <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
-          <p>Nhấn vào nút bên dưới để đặt lại mật khẩu:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-              Đặt lại mật khẩu
-            </a>
-          </div>
-          <p style="color: #666; font-size: 14px;">Link này sẽ hết hạn sau 30 phút.</p>
-          <p style="color: #666; font-size: 14px;">Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-          <p style="color: #999; font-size: 12px;">Email này được gửi tự động từ hệ thống Từ điển Mở.</p>
-        </div>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`Password reset email sent to ${userEmail}`);
-  } catch (error) {
-    console.error("Error sending password reset email:", error);
-    throw new Error(
-      "Không thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.",
+    console.error(
+      "[Email] sendNewContentNotificationToModerators error:",
+      error,
     );
   }
 };
 
 /**
- * Gửi email thông báo import dữ liệu thành công cho Admin
+ * Gửi email kết quả nhập dữ liệu cho Admin.
  */
 exports.sendImportNotificationEmail = async (
   adminEmail,
@@ -629,46 +724,57 @@ exports.sendImportNotificationEmail = async (
   importData,
 ) => {
   try {
-    const transporter = await getEmailTransporter();
-    const emailFrom = await SystemConfig.getValue(
-      "email_from",
-      process.env.EMAIL_FROM,
-    );
+    const { transporter, from } = await getMailConfig();
 
-    const mailOptions = {
-      from: emailFrom,
+    const errorsHtml =
+      importData.errors && importData.errors.length > 0
+        ? `<p style="margin:8px 0 4px;font-weight:700;color:#991b1b;font-size:13px;">Danh sách lỗi:</p>
+           <ul style="margin:0;padding-left:18px;color:#991b1b;font-size:13px;line-height:1.6;">
+             ${importData.errors
+               .slice(0, 5)
+               .map((e) => `<li>${e}</li>`)
+               .join("")}
+           </ul>`
+        : "";
+
+    const body = `
+      ${greeting(adminName)}
+      <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
+        Quá trình nhập dữ liệu từ file <strong>${importData.fileName}</strong> đã hoàn tất.
+      </p>
+      ${infoBox(
+        "#f8fafc",
+        "#64748b",
+        `
+        <p style="margin:0 0 8px;font-weight:700;color:#334155;font-size:14px;">📊 Kết quả nhập dữ liệu</p>
+        <p style="margin:4px 0;color:#334155;font-size:14px;"><strong>Tổng số bản ghi:</strong> ${importData.total}</p>
+        <p style="margin:4px 0;color:#16a34a;font-size:14px;"><strong>Thành công:</strong> ${importData.success}</p>
+        <p style="margin:4px 0;color:#dc2626;font-size:14px;"><strong>Thất bại:</strong> ${importData.failed}</p>
+        ${errorsHtml}`,
+      )}
+      ${signOff()}`;
+
+    await transporter.sendMail({
+      from,
       to: adminEmail,
-      subject: "Kết quả nhập dữ liệu - Từ điển Mở",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #667eea;">Kết quả nhập dữ liệu</h2>
-          <p>Xin chào ${adminName},</p>
-          <p>Quá trình nhập dữ liệu đã hoàn tất với kết quả:</p>
-          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p><strong>File:</strong> ${importData.fileName}</p>
-            <p><strong>Tổng số bản ghi:</strong> ${importData.total}</p>
-            <p style="color: #10b981;"><strong>Thành công:</strong> ${importData.success}</p>
-            <p style="color: #ef4444;"><strong>Thất bại:</strong> ${importData.failed}</p>
-            ${
-              importData.errors && importData.errors.length > 0
-                ? `<div style="margin-top: 10px;">
-                <strong>Lỗi:</strong>
-                <ul>${importData.errors
-                  .slice(0, 5)
-                  .map((e) => `<li>${e}</li>`)
-                  .join("")}</ul>
-              </div>`
-                : ""
-            }
-          </div>
-          <p style="margin-top: 30px;">Trân trọng,<br/>Hệ thống Từ điển Mở</p>
-        </div>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`Import notification email sent to ${adminEmail}`);
+      subject: "Kết quả nhập dữ liệu — Từ điển Mở",
+      html: buildEmailHtml("Kết quả nhập dữ liệu", "#64748b", body),
+    });
+    console.log(`[Email] ImportNotification sent → ${adminEmail}`);
   } catch (error) {
-    console.error("Error sending import notification email:", error);
+    console.error("[Email] sendImportNotificationEmail error:", error);
+  }
+};
+
+/**
+ * Kiểm tra cấu hình email (SMTP verify).
+ */
+exports.testEmailConfiguration = async () => {
+  try {
+    const { transporter } = await getMailConfig();
+    await transporter.verify();
+    return { success: true, message: "Email configuration is valid" };
+  } catch (error) {
+    return { success: false, message: error.message };
   }
 };

@@ -9,6 +9,7 @@ const {
   REPORT_TYPES,
   USER_ROLES,
   NOTIFICATION_TYPES,
+  REPORT_REASONS_LABELS,
 } = require("../utils/constants");
 
 /**
@@ -56,7 +57,7 @@ exports.createReport = async (reportData, reporterId) => {
     .sendNewReportNotificationToAdmins(
       {
         contentType: "term",
-        reason: reason,
+        reason: REPORT_REASONS_LABELS[reason] || reason,
         description: description,
       },
       reporter,
@@ -71,7 +72,7 @@ exports.createReport = async (reportData, reporterId) => {
     .notifyModeratorsForCategory(term.category, {
       type: NOTIFICATION_TYPES.REPORT_NEW,
       title: "Báo xấu mới cần xử lý",
-      message: `Có báo xấu mới cho thuật ngữ "${term.term?.vi || ""}" - Lý do: ${reason}`,
+      message: `Có báo xấu mới cho thuật ngữ "${term.term?.vi || ""}" - Lý do: ${REPORT_REASONS_LABELS[reason] || reason}`,
       relatedId: report._id,
       relatedModel: "Report",
       actionUrl: "/admin/moderation/reports",

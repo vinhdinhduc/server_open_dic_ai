@@ -41,6 +41,13 @@ module.exports = {
     DUPLICATE: "duplicate",
     OTHER: "other",
   },
+  REPORT_REASONS_LABELS: {
+    incorrect: "Thuật ngữ không chính xác",
+    spam: "Nội dung quảng cáo hoặc spam",
+    inappropriate: "Nội dung không phù hợp",
+    duplicate: "Trùng lặp với thuật ngữ khác",
+    other: "Lý do khác",
+  },
 
   REPORT_STATUS: {
     PENDING: "pending",

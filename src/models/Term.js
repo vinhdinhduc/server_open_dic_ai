@@ -4,12 +4,12 @@ const { TERM_STATUS } = require("../utils/constants");
 const termSchema = new mongoose.Schema(
   {
     term: {
-      vi: { type: String, required: true, trim: true },
+      vi: { type: String, trim: true },
       lo: { type: String, trim: true },
       en: { type: String, trim: true },
     },
     definition: {
-      vi: { type: String, required: true },
+      vi: String,
       lo: String,
       en: String,
     },

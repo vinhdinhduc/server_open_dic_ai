@@ -169,7 +169,6 @@ exports.updateConfigsBulk = async (req, res, next) => {
 exports.createConfig = async (req, res, next) => {
   try {
     const { key, value, description, category } = req.body;
-    console.log("Check ", key, value, description, category);
 
     // Check if config already exists
     const existingConfig = await SystemConfig.findOne({ key });

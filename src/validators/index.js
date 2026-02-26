@@ -171,16 +171,20 @@ const contributionValidators = {
     body("type")
       .isIn(["new_term", "edit_term"])
       .withMessage("Loại đóng góp không hợp lệ"),
-    body("term.vi")
-      .optional({ checkFalsy: false })
-      .trim()
-      .notEmpty()
-      .withMessage("Thuật ngữ tiếng Việt là bắt buộc"),
-    body("definition.vi")
-      .optional({ checkFalsy: false })
-      .trim()
-      .notEmpty()
-      .withMessage("Định nghĩa tiếng Việt là bắt buộc"),
+    body().custom((value, { req }) => {
+      const term = req.body.term || {};
+      if (!term.vi?.trim() && !term.en?.trim() && !term.lo?.trim()) {
+        throw new Error("Thuật ngữ phải có ít nhất một ngôn ngữ");
+      }
+      return true;
+    }),
+    body().custom((value, { req }) => {
+      const def = req.body.definition || {};
+      if (!def.vi?.trim() && !def.en?.trim() && !def.lo?.trim()) {
+        throw new Error("Định nghĩa phải có ít nhất một ngôn ngữ");
+      }
+      return true;
+    }),
     body("category")
       .notEmpty()
       .withMessage("Danh mục là bắt buộc")

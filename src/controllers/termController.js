@@ -18,7 +18,6 @@ exports.searchTerms = async (req, res, next) => {
 
     // Note: Search history is now saved from client-side via POST /api/terms/search-history
     // to support authenticated users when search is called from server-side rendering
-    console.log("Check response trả vể", result);
 
     return successResponse(res, "Tìm kiếm thuật ngữ thành công", result);
   } catch (error) {

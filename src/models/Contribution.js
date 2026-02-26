@@ -13,12 +13,12 @@ const contributionSchema = new mongoose.Schema(
       ref: "Term",
     },
     term: {
-      vi: { type: String, required: true },
+      vi: String,
       lo: String,
       en: String,
     },
     definition: {
-      vi: { type: String, required: true },
+      vi: String,
       lo: String,
       en: String,
     },

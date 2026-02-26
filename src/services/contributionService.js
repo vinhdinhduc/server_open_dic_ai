@@ -12,20 +12,18 @@ const {
 } = require("../utils/constants");
 //Tạo đóng góp thuật ngữ mới
 exports.createContribution = async (userId, contributionData) => {
-  console.log("contribution data", contributionData);
-
   const newContribution = await Contribution.create({
     ...contributionData,
     contributor: userId,
     status: CONTRIBUTION_STATUS.PENDING,
   });
 
-  console.log("after", newContribution);
-
   // Lấy thông tin contributor và gửi email cho admin
   const contributor = await User.findById(userId).select("fullName email");
 
   // Gửi email thông báo cho admin (không chờ kết quả)
+  console.log("Check contribution data", contributionData, contributor);
+
   emailService
     .sendNewContributionNotificationToAdmins(contributionData, contributor)
     .catch((err) => {
@@ -79,7 +77,11 @@ exports.getContribution = async (filter = {}, options = {}, user = null) => {
       .limit(limit)
       .populate("contributor", "fullName email")
       .populate("category", "name")
-      .populate("moderator", "fullName"),
+      .populate("moderator", "fullName")
+      .populate(
+        "targetTerm",
+        "term definition detailedExplanation examples partOfSpeech tags slug",
+      ),
     Contribution.countDocuments(query),
   ]);
 
