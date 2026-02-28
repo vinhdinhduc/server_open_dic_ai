@@ -34,7 +34,7 @@ router.post(
  */
 router.post(
   "/login",
-  // loginLimiter,
+  loginLimiter,
   authValidators.login,
   validate,
   authController.login,

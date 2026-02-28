@@ -35,7 +35,7 @@ exports.createContribution = async (userId, contributionData) => {
     .notifyModeratorsForCategory(contributionData.category, {
       type: NOTIFICATION_TYPES.CONTRIBUTION_NEW,
       title: "Đóng góp mới cần kiểm duyệt",
-      message: `Có đóng góp mới từ "${contributor?.fullName || "Người dùng"}" - ${contributionData.type === "new_term" ? "Thêm từ mới" : "Gợi ý sửa từ"}: "${contributionData.term?.vi || ""}"`,
+      message: `Có đóng góp mới từ "${contributor?.fullName || "Người dùng"}" - ${contributionData.type === "new_term" ? "Thêm từ mới" : "Gợi ý sửa từ"}: "${contributionData.term?.vi || contributionData.term?.en || contributionData.term?.lo || ""}". Vui lòng kiểm duyệt.`,
       relatedId: newContribution._id,
       relatedModel: "Contribution",
       actionUrl: "/admin/moderation/contributions",
@@ -193,7 +193,7 @@ exports.approveContribution = async (
     recipient: contribution.contributor,
     type: NOTIFICATION_TYPES.CONTRIBUTION_APPROVED,
     title: "Đóng góp được phê duyệt",
-    message: `Đóng góp của bạn về thuật ngữ "${contribution.term?.vi || ""}" đã được phê duyệt.${moderatorNote ? " Ghi chú: " + moderatorNote : ""}`,
+    message: `Đóng góp của bạn về thuật ngữ "${contribution.term?.vi || contribution.term?.en || contribution.term?.lo || ""}" đã được phê duyệt.${moderatorNote ? " Ghi chú: " + moderatorNote : ""}`,
     relatedId: term._id,
     relatedModel: "Term",
     actionUrl: `/terms/${term._id}`,
@@ -210,7 +210,11 @@ exports.approveContribution = async (
         contributorInfo.fullName,
         {
           type: contribution.type,
-          termName: contribution.term,
+          termName:
+            contribution.term?.vi ||
+            contribution.term?.en ||
+            contribution.term?.lo ||
+            "",
           moderatorNote: moderatorNote,
         },
       )
@@ -267,7 +271,7 @@ exports.rejectContribution = async (
     recipient: contribution.contributor,
     type: NOTIFICATION_TYPES.CONTRIBUTION_REJECTED,
     title: "Đóng góp bị từ chối",
-    message: `Đóng góp của bạn về thuật ngữ "${contribution.term?.vi || ""}" đã bị từ chối. Lý do: ${moderatorNote}`,
+    message: `Đóng góp của bạn về thuật ngữ "${contribution.term?.vi || contribution.term?.en || contribution.term?.lo || ""}" đã bị từ chối. Lý do: ${moderatorNote}`,
     relatedId: contribution._id,
     relatedModel: "Contribution",
     actionUrl: `/contribute`,
@@ -284,7 +288,11 @@ exports.rejectContribution = async (
         contributorInfo.fullName,
         {
           type: contribution.type,
-          termName: contribution.term,
+          termName:
+            contribution.term?.vi ||
+            contribution.term?.en ||
+            contribution.term?.lo ||
+            "",
           moderatorNote: moderatorNote,
         },
       )

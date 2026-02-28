@@ -37,9 +37,6 @@ const reportStatsRoutes = require("./routes/reportStatsRoutes");
 
 const app = express();
 
-// ==================== SECURITY MIDDLEWARES ====================
-// Phải đặt trước các middlewares khác
-
 // 1. Helmet - HTTP Security Headers (chống XSS, Clickjacking, etc.)
 app.use(helmetConfig);
 
@@ -64,11 +61,11 @@ app.use(
   }),
 );
 
-// 5. Passport initialization (must be after express-session)
+// 5. Passport initialization
 app.use(passport.initialize());
 app.use(passport.session());
 
-// 6. CORS configuration (cấu hình cụ thể cho production)
+// 6. CORS configuration
 const corsOptions = {
   origin: process.env.FRONTEND_URL || "http://localhost:3000",
   credentials: true, // Cho phép gửi cookies
@@ -91,7 +88,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 // 8. Security logger (log các requests đáng ngờ)
 app.use(securityLogger);
 
-// 9. NoSQL Injection protection (phải đặt sau body parser)
+// 9. NoSQL Injection protection
 app.use(noSqlInjectionProtection);
 
 // 10. XSS protection
@@ -113,7 +110,6 @@ if (process.env.USE_CSRF === "true") {
   app.use(doubleSubmitCookie.setCsrfToken);
 }
 
-// ==================== ROUTES ====================
 // 15. Rate limiting - Áp dụng API rate limiter cho tất cả API routes
 app.use("/api", apiLimiter);
 
