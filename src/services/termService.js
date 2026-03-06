@@ -4,6 +4,8 @@ const SearchHistory = require("../models/SearchHistory");
 const { TERM_STATUS } = require("../utils/constants");
 const mongoose = require("mongoose");
 
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 exports.searchTerms = async (query, options = {}) => {
   const {
     page = 1,
@@ -14,17 +16,20 @@ exports.searchTerms = async (query, options = {}) => {
   } = options;
   const skip = (page - 1) * limit;
   const searchQuery = { status: TERM_STATUS.APPROVED };
-  let projection = {};
   let sort = {};
-  //Tìm kiếm full-text
-
+  // Tìm kiếm bằng regex để hỗ trợ tiếng Việt và tìm từ một phần (prefix/substring)
+  // $text chỉ khớp nguyên từ hoàn chỉnh nên không phù hợp khi người dùng gõ chưa hết từ
   if (query && query.trim()) {
-    searchQuery.$text = { $search: query.trim() };
-
-    if (sortBy === "relevance") {
-      sort.core = { $meta: "textScore" };
-      projection.score = { $meta: "textScore" };
-    }
+    const trimmed = query.trim();
+    const regex = new RegExp(escapeRegex(trimmed), "i");
+    searchQuery.$or = [
+      { "term.vi": regex },
+      { "term.en": regex },
+      { "term.lo": regex },
+      { "definition.vi": regex },
+      { "definition.en": regex },
+      { "definition.lo": regex },
+    ];
   }
 
   //filter theo category - bỏ qua nếu là "all" hoặc không có giá trị
@@ -36,7 +41,8 @@ exports.searchTerms = async (query, options = {}) => {
   }
   if (sortBy === "popular") {
     sort.viewCount = -1;
-  } else if (sortBy === "newest") {
+  } else if (sortBy === "newest" || sortBy === "relevance") {
+    // "relevance" được map về newest vì regex search không có text score
     sort.createdAt = -1;
   }
 
@@ -323,7 +329,6 @@ exports.clearSearchHistory = async (userId) => {
 };
 
 //Lấy gợi ý tìm kiếm
-const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 exports.getSuggestions = async (query, language = "vi", limit = 10) => {
   if (!query || query.trim().length < 2) return [];
   const trimmed = query.trim();

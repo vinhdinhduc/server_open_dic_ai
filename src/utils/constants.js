@@ -1,4 +1,12 @@
 module.exports = {
+  APP_NAME: "OpenDict",
+
+  TOKEN_EXPIRY: {
+    EMAIL_VERIFICATION_MS: 24 * 60 * 60 * 1000, // 24 giờ
+    PASSWORD_RESET_MS: 30 * 60 * 1000, // 30 phút
+    REFRESH_TOKEN_MS: 30 * 24 * 60 * 60 * 1000, // 30 ngày
+  },
+
   USER_ROLES: {
     ADMIN: "admin",
     MODERATOR: "moderator",

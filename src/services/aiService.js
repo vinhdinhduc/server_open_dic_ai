@@ -236,7 +236,7 @@ const getSystemPrompt = (language) => {
 }`;
 
   const prompts = {
-    vi: `Bạn là trợ lý AI chuyên về từ điển thuật ngữ chuyên ngành.
+    vi: `Bạn là trợ lý AI chuyên về hệ thống từ điển mở OpenDict đa ngôn ngữ.
 Nhiệm vụ: giải thích thuật ngữ và trả về JSON chuẩn theo schema sau:
 ${jsonSchema}
 
@@ -377,8 +377,8 @@ const cleanJsonString = (jsonStr) => {
 const getMockResponse = (term, language) => {
   const mockData = {
     vi: {
-      definition: `"${term}" là một thuật ngữ chuyên ngành chưa có trong hệ thống từ điển.`,
-      detailedExplanation: `Thuật ngữ **"${term}"** hiện chưa có trong cơ sở dữ liệu từ điển của chúng tôi.\n\nĐây có thể là thuật ngữ thuộc các lĩnh vực: Công nghệ thông tin, Y học, Kỹ thuật, Kinh tế, hoặc các ngành khác.\n\n**Gợi ý:**\n- Đóng góp định nghĩa nếu bạn biết về thuật ngữ này\n- Liên hệ với quản trị viên để bổ sung\n- Tìm kiếm trên các nguồn tài liệu chuyên ngành\n\n*Đây là phản hồi mẫu. Để sử dụng AI thực, Admin cần cấu hình API key trong phần Cài đặt hệ thống.*`,
+      definition: `"${term}" là một thuật ngữ chưa có trong hệ thống từ điển OpenDict.`,
+      detailedExplanation: `Thuật ngữ **"${term}"** hiện chưa có trong cơ sở dữ liệu từ điển của chúng tôi.\n\nĐây có thể là thuật ngữ thuộc các lĩnh vực: Công nghệ thông tin, Y học, Kỹ thuật, Kinh tế, hoặc các ngành khác.\n\n**Gợi ý:**\n- Đóng góp định nghĩa nếu bạn biết về thuật ngữ này\n- Liên hệ với quản trị viên để bổ sung\n- Tìm kiếm trên các nguồn tài liệu tham khảo\n\n*Đây là phản hồi mẫu. Để sử dụng AI thực, Admin cần cấu hình API key trong phần Cài đặt hệ thống.*`,
       examples: [
         `Thuật ngữ "${term}" thường được sử dụng trong ngữ cảnh chuyên ngành.`,
         `Bạn có thể tìm hiểu thêm về "${term}" từ các tài liệu chuyên môn.`,

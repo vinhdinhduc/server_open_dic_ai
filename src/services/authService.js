@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const User = require("../models/User");
 const emailService = require("./emailService");
+const { TOKEN_EXPIRY } = require("../utils/constants");
 
 const generateAccessToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
@@ -48,7 +49,8 @@ exports.register = async ({ fullName, email, password }) => {
     .digest("hex");
 
   newUser.emailVerificationToken = hashedToken;
-  newUser.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
+  newUser.emailVerificationExpires =
+    Date.now() + TOKEN_EXPIRY.EMAIL_VERIFICATION_MS;
   await newUser.save();
 
   // Gửi email active tài khoản
@@ -114,7 +116,7 @@ exports.login = async (email, password, rememberMe) => {
     .digest("hex");
 
   user.refreshToken = hashedRefreshToken;
-  user.refreshTokenExpires = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days
+  user.refreshTokenExpires = Date.now() + TOKEN_EXPIRY.REFRESH_TOKEN_MS; // 30 days
   user.lastLogin = Date.now();
   await user.save();
 
@@ -333,7 +335,7 @@ exports.forgotPassword = async (email) => {
     .digest("hex");
 
   user.resetPasswordToken = hashedToken;
-  user.resetPasswordExpires = Date.now() + 30 * 60 * 1000; // 30 phút
+  user.resetPasswordExpires = Date.now() + TOKEN_EXPIRY.PASSWORD_RESET_MS; // 30 phút
   await user.save();
 
   // Gửi email
@@ -429,7 +431,7 @@ exports.googleLogin = async (googleData) => {
     .digest("hex");
 
   user.refreshToken = hashedRefreshToken;
-  user.refreshTokenExpires = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days
+  user.refreshTokenExpires = Date.now() + TOKEN_EXPIRY.REFRESH_TOKEN_MS; // 30 days
   await user.save();
 
   return {
@@ -507,7 +509,8 @@ exports.resendVerificationEmail = async (userId) => {
     .digest("hex");
 
   user.emailVerificationToken = hashedToken;
-  user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 giờ
+  user.emailVerificationExpires =
+    Date.now() + TOKEN_EXPIRY.EMAIL_VERIFICATION_MS; // 24 giờ
   await user.save();
 
   // Gửi email
@@ -543,7 +546,7 @@ exports.generateTokensForUser = async (userId) => {
     .digest("hex");
 
   user.refreshToken = hashedRefreshToken;
-  user.refreshTokenExpires = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days
+  user.refreshTokenExpires = Date.now() + TOKEN_EXPIRY.REFRESH_TOKEN_MS; // 30 days
   user.lastLogin = Date.now();
   await user.save();
 

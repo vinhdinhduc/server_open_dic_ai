@@ -1,5 +1,6 @@
 const nodemailer = require("nodemailer");
 const SystemConfig = require("../models/SystemConfig");
+const { APP_NAME } = require("../utils/constants");
 
 const getEmailTransporter = async () => {
   const emailHost = await SystemConfig.getValue("email_host", "smtp.gmail.com");
@@ -37,7 +38,7 @@ const getMailConfig = async () => {
   );
   const emailFromName = await SystemConfig.getValue(
     "email_from_name",
-    "Từ điển Mở",
+    process.env.EMAIL_FROM_NAME || APP_NAME,
   );
   return { transporter, from: `${emailFromName} <${emailFrom}>` };
 };
@@ -69,7 +70,7 @@ const buildEmailHtml = (title, accentColor, bodyHtml) => `
           <tr>
             <td style="background:${accentColor};padding:28px 40px;text-align:center;">
               <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">
-                 Từ điển Mở
+                 OpenDict
               </h1>
             </td>
           </tr>
@@ -88,11 +89,11 @@ const buildEmailHtml = (title, accentColor, bodyHtml) => `
           <tr>
             <td style="background:#f8fafc;padding:20px 40px;border-top:1px solid #e2e8f0;text-align:center;">
               <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.6;">
-                Email này được gửi tự động từ hệ thống <strong>Từ điển Mở</strong>.<br/>
+                Email này được gửi tự động từ hệ thống <strong>OpenDict</strong>.<br/>
                 Vui lòng không trả lời email này.
               </p>
               <p style="margin:8px 0 0;color:#94a3b8;font-size:11px;">
-                © ${new Date().getFullYear()} Từ điển Mở — Nền tảng từ điển mở cho cộng đồng
+                © ${new Date().getFullYear()} OpenDict — Nền tảng từ điển mở cho cộng đồng
               </p>
             </td>
           </tr>
@@ -138,7 +139,7 @@ const greeting = (name) =>
 /** Standard sign-off. */
 const signOff = () =>
   `<p style="color:#334155;font-size:14px;margin:28px 0 0;line-height:1.6;">
-    Trân trọng,<br/><strong>Đội ngũ Từ điển Mở</strong>
+    Trân trọng,<br/><strong>Đội ngũ OpenDict</strong>
   </p>`;
 
 // ─────────────────────────────────────────────────────────
@@ -160,7 +161,7 @@ exports.sendVerificationEmail = async (
     const body = `
       ${greeting(userName)}
       <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
-        Cảm ơn bạn đã đăng ký tài khoản tại <strong>Từ điển Mở</strong>.
+        Cảm ơn bạn đã đăng ký tài khoản tại <strong>OpenDict</strong>.
         Nhấn nút bên dưới để xác thực địa chỉ email và kích hoạt tài khoản.
       </p>
       ${ctaButton(url, " Xác thực email", "#16a34a")}
@@ -178,7 +179,7 @@ exports.sendVerificationEmail = async (
     await transporter.sendMail({
       from,
       to: userEmail,
-      subject: "Xác thực tài khoản — Từ điển Mở",
+      subject: "Xác thực tài khoản — OpenDict",
       html: buildEmailHtml("Xác thực tài khoản", "#16a34a", body),
     });
     console.log(`[Email] Verification sent → ${userEmail}`);
@@ -199,7 +200,7 @@ exports.sendWelcomeEmail = async (userEmail, userName) => {
       ${greeting(userName)}
       <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
         Tài khoản của bạn đã được xác thực thành công.
-        Hãy bắt đầu khám phá <strong>Từ điển Mở</strong>!
+        Hãy bắt đầu khám phá <strong>OpenDict</strong>!
       </p>
       ${infoBox(
         "#f0fdf4",
@@ -207,7 +208,7 @@ exports.sendWelcomeEmail = async (userEmail, userName) => {
         `
         <p style="margin:0 0 8px;color:#166534;font-weight:700;font-size:14px;"> Bạn có thể ngay bây giờ:</p>
         <ul style="margin:0;padding-left:20px;color:#166534;font-size:14px;line-height:1.8;">
-          <li>Tra cứu hàng nghìn thuật ngữ chuyên ngành</li>
+          <li>Tra cứu hàng nghìn thuật ngữ từ nhiều từ điển</li>
           <li>Đóng góp từ mới hoặc cải thiện định nghĩa hiện có</li>
           <li>Tham gia thảo luận cùng cộng đồng</li>
         </ul>`,
@@ -218,7 +219,7 @@ exports.sendWelcomeEmail = async (userEmail, userName) => {
     await transporter.sendMail({
       from,
       to: userEmail,
-      subject: "Chào mừng đến với Từ điển Mở!",
+      subject: "Chào mừng đến với OpenDict!",
       html: buildEmailHtml("Chào mừng bạn!", "#2563eb", body),
     });
     console.log(`[Email] Welcome sent  ${userEmail}`);
@@ -257,7 +258,7 @@ exports.sendPasswordResetEmail = async (userEmail, userName, resetUrl) => {
     await transporter.sendMail({
       from,
       to: userEmail,
-      subject: "Đặt lại mật khẩu — Từ điển Mở",
+      subject: "Đặt lại mật khẩu — OpenDict",
       html: buildEmailHtml("Đặt lại mật khẩu", "#7c3aed", body),
     });
     console.log(`[Email] PasswordReset sent ${userEmail}`);
@@ -757,7 +758,7 @@ exports.sendImportNotificationEmail = async (
     await transporter.sendMail({
       from,
       to: adminEmail,
-      subject: "Kết quả nhập dữ liệu — Từ điển Mở",
+      subject: "Kết quả nhập dữ liệu — OpenDict",
       html: buildEmailHtml("Kết quả nhập dữ liệu", "#64748b", body),
     });
     console.log(`[Email] ImportNotification sent → ${adminEmail}`);
