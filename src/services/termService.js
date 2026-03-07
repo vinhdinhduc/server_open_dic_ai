@@ -328,21 +328,39 @@ exports.clearSearchHistory = async (userId) => {
   return { message: "Đã xoá toàn bộ lịch sử tìm kiếm" };
 };
 
-//Lấy gợi ý tìm kiếm
+//Lấy gợi ý tìm kiếm (tìm trên tất cả ngôn ngữ)
 exports.getSuggestions = async (query, language = "vi", limit = 10) => {
   if (!query || query.trim().length < 2) return [];
   const trimmed = query.trim();
   const prefixRegex = new RegExp(`^${escapeRegex(trimmed)}`, "i");
   const terms = await Term.find(
     {
-      [`term.${language}`]: prefixRegex,
+      $or: [
+        { "term.vi": prefixRegex },
+        { "term.en": prefixRegex },
+        { "term.lo": prefixRegex },
+      ],
       status: TERM_STATUS.APPROVED,
     },
     {
-      [`term.${language}`]: 1,
+      "term.vi": 1,
+      "term.en": 1,
+      "term.lo": 1,
     },
   )
-    .limit(limit)
+    .limit(limit * 2)
     .lean();
-  return terms.map((t) => t.term[language]).filter(Boolean);
+
+  const suggestions = [];
+  const seen = new Set();
+  for (const t of terms) {
+    for (const lang of ["vi", "en", "lo"]) {
+      const val = t.term[lang];
+      if (val && prefixRegex.test(val) && !seen.has(val.toLowerCase())) {
+        seen.add(val.toLowerCase());
+        suggestions.push(val);
+      }
+    }
+  }
+  return suggestions.slice(0, limit);
 };
