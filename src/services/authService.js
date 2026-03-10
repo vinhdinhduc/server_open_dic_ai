@@ -92,8 +92,8 @@ exports.login = async (email, password, rememberMe) => {
   }
 
   // kiểm tra tài khoản có bị khóa không
-  if (user.status === "banned") {
-    const error = new Error("Tài khoản của bạn đã bị khóa");
+  if (user.status === "banned" || user.status === "locked") {
+    const error = new Error("Tài khoản của bạn đã bị khoá!");
     error.statusCode = 403;
     throw error;
   }
@@ -130,6 +130,7 @@ exports.login = async (email, password, rememberMe) => {
       status: user.status,
       emailVerified: user.emailVerified,
       contributionCount: user.contributionCount,
+      emailNotifications: user.emailNotifications,
     },
     accessToken,
     refreshToken,
@@ -138,7 +139,11 @@ exports.login = async (email, password, rememberMe) => {
 //Update profile
 
 exports.updateProfile = async (userId, updates) => {
-  const allowedUpdates = ["fullName", "preferredLanguage"];
+  const allowedUpdates = [
+    "fullName",
+    "preferredLanguage",
+    "emailNotifications",
+  ];
   const filteredUpdates = {};
   Object.keys(updates).forEach((key) => {
     if (allowedUpdates.includes(key)) {
@@ -163,6 +168,7 @@ exports.updateProfile = async (userId, updates) => {
     preferredLanguage: updatedUser.preferredLanguage,
     status: updatedUser.status,
     contributionCount: updatedUser.contributionCount,
+    emailNotifications: updatedUser.emailNotifications,
   };
 };
 
@@ -309,6 +315,7 @@ exports.getProfile = async (userId) => {
     status: user.status,
     contributionCount: user.contributionCount,
     emailVerified: user.emailVerified,
+    emailNotifications: user.emailNotifications,
     createdAt: user.createdAt,
     lastLogin: user.lastLogin,
     authProvider: user.authProvider,
@@ -389,8 +396,8 @@ exports.googleLogin = async (googleData) => {
 
   if (user) {
     // User tồn tại
-    if (user.status === "banned") {
-      const error = new Error("Tài khoản của bạn đã bị khóa");
+    if (user.status === "banned" || user.status === "locked") {
+      const error = new Error("Tài khoản của bạn đã bị khoá!");
       error.statusCode = 403;
       throw error;
     }
@@ -444,6 +451,7 @@ exports.googleLogin = async (googleData) => {
       preferredLanguage: user.preferredLanguage,
       status: user.status,
       contributionCount: user.contributionCount,
+      emailNotifications: user.emailNotifications,
     },
     accessToken,
     refreshToken,

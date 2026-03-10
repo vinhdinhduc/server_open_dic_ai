@@ -80,14 +80,26 @@ router.get(
 );
 
 /**
+ * @route   GET /api/terms/import-template
+ * @desc    Tải file Excel mẫu cho import
+ * @access  Private - Moderator/Admin
+ */
+router.get(
+  "/import-template",
+  authenticate,
+  isModerator,
+  termController.downloadImportTemplate,
+);
+
+/**
  * @route   POST /api/terms/import
  * @desc    Nhập thuật ngữ từ file Excel/CSV
- * @access  Private - Admin
+ * @access  Private - Moderator/Admin
  */
 router.post(
   "/import",
   authenticate,
-  isAdmin,
+  isModerator,
   upload.single("file"),
   termController.importTerms,
 );

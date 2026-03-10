@@ -211,6 +211,128 @@ exports.importTerms = async (req, res, next) => {
   }
 };
 
+// Download Excel template for import
+exports.downloadImportTemplate = async (req, res, next) => {
+  try {
+    const XLSX = require("xlsx");
+
+    const headerRow = [
+      "* Thuật ngữ (VI)",
+      "Thuật ngữ (EN)",
+      "Thuật ngữ (LO)",
+      "* Định nghĩa (VI)",
+      "Định nghĩa (EN)",
+      "Định nghĩa (LO)",
+      "Giải thích chi tiết (VI)",
+      "Giải thích chi tiết (EN)",
+      "Giải thích chi tiết (LO)",
+      "Ví dụ",
+      "Tags",
+      "Loại từ",
+      "Danh mục",
+    ];
+
+    const sampleRows = [
+      [
+        "Trí tuệ nhân tạo",
+        "Artificial Intelligence",
+        "ປັນຍາປະດິດ",
+        "Lĩnh vực khoa học máy tính mô phỏng trí tuệ con người",
+        "A field of computer science that simulates human intelligence",
+        "",
+        "Trí tuệ nhân tạo (AI) là một nhánh của khoa học máy tính...",
+        "Artificial Intelligence (AI) is a branch of computer science...",
+        "",
+        "AI được dùng trong nhận diện khuôn mặt; Chatbot là ứng dụng AI phổ biến",
+        "AI,machine learning,deep learning",
+        "noun",
+        "Công nghệ thông tin",
+      ],
+      [
+        "Cơ sở dữ liệu",
+        "Database",
+        "",
+        "Tập hợp dữ liệu có tổ chức, được lưu trữ và truy cập bằng máy tính",
+        "An organized collection of data stored and accessed electronically",
+        "",
+        "",
+        "",
+        "",
+        "MySQL là một hệ quản trị CSDL phổ biến",
+        "database,SQL,storage",
+        "noun",
+        "Công nghệ thông tin",
+      ],
+    ];
+
+    const instructionSheet = [
+      ["HƯỚNG DẪN IMPORT THUẬT NGỮ"],
+      [""],
+      ["Cột bắt buộc (đánh dấu *):", "* Thuật ngữ (VI), * Định nghĩa (VI)"],
+      [
+        "Cột tùy chọn:",
+        "Thuật ngữ (EN/LO), Định nghĩa (EN/LO), Giải thích chi tiết (VI/EN/LO), Ví dụ, Tags, Loại từ, Danh mục",
+      ],
+      [""],
+      [
+        "Loại từ (partOfSpeech):",
+        "noun, verb, adjective, adverb, phrase, abbreviation",
+      ],
+      [
+        "Danh mục:",
+        "Nhập tên danh mục tiếng Việt hoặc slug. Nếu bỏ trống, dùng danh mục được chọn khi import.",
+      ],
+      [""],
+      ["Ví dụ:", "Nhập nhiều ví dụ cách nhau bằng dấu chấm phẩy (;)"],
+      ["Tags:", "Nhập nhiều tag cách nhau bằng dấu phẩy (,)"],
+      [""],
+      ["Lưu ý:"],
+      ["- Dòng đầu tiên là tiêu đề, dữ liệu bắt đầu từ dòng 2"],
+      ["- Thuật ngữ trùng trong cùng danh mục sẽ bị bỏ qua"],
+      ["- Hỗ trợ định dạng: .xlsx, .xls, .csv"],
+      ["- Tối đa 10MB mỗi file"],
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet([headerRow, ...sampleRows]);
+    ws["!cols"] = [
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 50 },
+      { wch: 50 },
+      { wch: 50 },
+      { wch: 50 },
+      { wch: 50 },
+      { wch: 50 },
+      { wch: 50 },
+      { wch: 30 },
+      { wch: 15 },
+      { wch: 25 },
+    ];
+
+    const wsInstructions = XLSX.utils.aoa_to_sheet(instructionSheet);
+    wsInstructions["!cols"] = [{ wch: 30 }, { wch: 60 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Thuật ngữ");
+    XLSX.utils.book_append_sheet(wb, wsInstructions, "Hướng dẫn");
+
+    const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="import-template.xlsx"',
+    );
+    return res.send(buffer);
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Lưu lịch sử tìm kiếm (client-side call)
 exports.saveSearchHistoryEndpoint = async (req, res, next) => {
   try {

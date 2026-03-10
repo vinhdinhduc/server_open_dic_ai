@@ -17,8 +17,7 @@ exports.searchTerms = async (query, options = {}) => {
   const skip = (page - 1) * limit;
   const searchQuery = { status: TERM_STATUS.APPROVED };
   let sort = {};
-  // Tìm kiếm bằng regex để hỗ trợ tiếng Việt và tìm từ một phần (prefix/substring)
-  // $text chỉ khớp nguyên từ hoàn chỉnh nên không phù hợp khi người dùng gõ chưa hết từ
+
   if (query && query.trim()) {
     const trimmed = query.trim();
     const regex = new RegExp(escapeRegex(trimmed), "i");
@@ -29,20 +28,89 @@ exports.searchTerms = async (query, options = {}) => {
       { "definition.vi": regex },
       { "definition.en": regex },
       { "definition.lo": regex },
+      { tags: regex },
     ];
   }
-
-  //filter theo category - bỏ qua nếu là "all" hoặc không có giá trị
 
   if (category && category !== "all") {
     if (mongoose.Types.ObjectId.isValid(category)) {
       searchQuery.category = new mongoose.Types.ObjectId(category);
     }
   }
+
+  // For relevance sort we fetch extra results, score them, then paginate in-memory
+  if (sortBy === "relevance" && query && query.trim()) {
+    const trimmed = query.trim();
+    const lowerQ = trimmed.toLowerCase();
+    const prefixRegex = new RegExp(`^${escapeRegex(trimmed)}`, "i");
+
+    // Fetch more results for scoring (up to 200)
+    const allTerms = await Term.find(searchQuery)
+      .populate("category", "name slug")
+      .populate("createdBy", "fullName")
+      .populate("relatedTerms", "term definition")
+      .select(
+        "term definition category viewCount favoriteCount createdAt relatedTerms tags",
+      )
+      .limit(200)
+      .lean();
+
+    // Score each result
+    const scored = allTerms.map((t) => {
+      let score = 0;
+      const langs = ["vi", "en", "lo"];
+
+      // Term name matching (highest priority)
+      for (const lang of langs) {
+        const val = (t.term[lang] || "").toLowerCase();
+        if (val === lowerQ) {
+          score += 100; // Exact match
+        } else if (prefixRegex.test(t.term[lang] || "")) {
+          score += 80; // Prefix match
+        } else if (val.includes(lowerQ)) {
+          score += 60; // Contains in term name
+        }
+      }
+
+      // Definition matching (medium priority)
+      for (const lang of langs) {
+        const defVal = (t.definition?.[lang] || "").toLowerCase();
+        if (defVal.includes(lowerQ)) {
+          score += 30;
+        }
+      }
+
+      // Tags matching
+      if (t.tags?.some((tag) => tag.toLowerCase().includes(lowerQ))) {
+        score += 20;
+      }
+
+      // Popularity boost (minor)
+      score += Math.min((t.viewCount || 0) * 0.01, 5);
+
+      return { ...t, _relevanceScore: score };
+    });
+
+    // Sort by score descending, then by viewCount
+    scored.sort(
+      (a, b) =>
+        b._relevanceScore - a._relevanceScore ||
+        (b.viewCount || 0) - (a.viewCount || 0),
+    );
+
+    const total = scored.length;
+    const paginated = scored.slice(skip, skip + limit);
+
+    return {
+      terms: paginated,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    };
+  }
+
+  // Non-relevance sorts
   if (sortBy === "popular") {
     sort.viewCount = -1;
-  } else if (sortBy === "newest" || sortBy === "relevance") {
-    // "relevance" được map về newest vì regex search không có text score
+  } else {
     sort.createdAt = -1;
   }
 
@@ -175,6 +243,7 @@ exports.getTermById = async (termId, userId = null) => {
   const term = await Term.findById(termId)
     .populate("category", "name description icon")
     .populate("createdBy", "fullName email")
+    .populate("lastModifiedBy", "fullName email")
     .populate("relatedTerms", "term definition");
 
   if (!term) {
@@ -328,17 +397,27 @@ exports.clearSearchHistory = async (userId) => {
   return { message: "Đã xoá toàn bộ lịch sử tìm kiếm" };
 };
 
-//Lấy gợi ý tìm kiếm (tìm trên tất cả ngôn ngữ)
+//Lấy gợi ý tìm kiếm (tìm trên tất cả ngôn ngữ) - trả về objects có thông tin category
 exports.getSuggestions = async (query, language = "vi", limit = 10) => {
   if (!query || query.trim().length < 2) return [];
   const trimmed = query.trim();
+  const lowerQ = trimmed.toLowerCase();
   const prefixRegex = new RegExp(`^${escapeRegex(trimmed)}`, "i");
+  const containsRegex = new RegExp(escapeRegex(trimmed), "i");
+
   const terms = await Term.find(
     {
       $or: [
         { "term.vi": prefixRegex },
         { "term.en": prefixRegex },
         { "term.lo": prefixRegex },
+        { "term.vi": containsRegex },
+        { "term.en": containsRegex },
+        { "term.lo": containsRegex },
+        { "definition.vi": containsRegex },
+        { "definition.en": containsRegex },
+        { "definition.lo": containsRegex },
+        { tags: containsRegex },
       ],
       status: TERM_STATUS.APPROVED,
     },
@@ -346,21 +425,72 @@ exports.getSuggestions = async (query, language = "vi", limit = 10) => {
       "term.vi": 1,
       "term.en": 1,
       "term.lo": 1,
+      "definition.vi": 1,
+      "definition.en": 1,
+      "definition.lo": 1,
+      category: 1,
+      tags: 1,
     },
   )
-    .limit(limit * 2)
+    .populate("category", "name icon slug")
+    .limit(limit * 3)
     .lean();
 
   const suggestions = [];
   const seen = new Set();
+
   for (const t of terms) {
+    if (seen.has(t._id.toString())) continue;
+
+    let matchedField = null;
+    let score = 0;
+
+    // 1. Term name matching (highest priority)
     for (const lang of ["vi", "en", "lo"]) {
-      const val = t.term[lang];
-      if (val && prefixRegex.test(val) && !seen.has(val.toLowerCase())) {
-        seen.add(val.toLowerCase());
-        suggestions.push(val);
+      const val = (t.term[lang] || "").toLowerCase();
+      if (val === lowerQ) {
+        score = Math.max(score, 100);
+        matchedField = matchedField || `term.${lang}`;
+      } else if (prefixRegex.test(t.term[lang] || "")) {
+        score = Math.max(score, 80);
+        matchedField = matchedField || `term.${lang}`;
+      } else if (val.includes(lowerQ)) {
+        score = Math.max(score, 60);
+        matchedField = matchedField || `term.${lang}`;
       }
     }
+
+    // 2. Definition matching (medium priority)
+    if (!matchedField) {
+      for (const lang of ["vi", "en", "lo"]) {
+        const defVal = (t.definition?.[lang] || "").toLowerCase();
+        if (defVal.includes(lowerQ)) {
+          score = Math.max(score, 30);
+          matchedField = `definition.${lang}`;
+          break;
+        }
+      }
+    }
+
+    // 3. Tags matching (lower priority)
+    if (!matchedField && t.tags?.some((tag) => containsRegex.test(tag))) {
+      score = 20;
+      matchedField = "tags";
+    }
+
+    if (matchedField) {
+      seen.add(t._id.toString());
+      suggestions.push({
+        _id: t._id,
+        term: t.term,
+        category: t.category,
+        matchedField,
+        _score: score,
+      });
+    }
   }
+
+  // Sort by score descending
+  suggestions.sort((a, b) => b._score - a._score);
   return suggestions.slice(0, limit);
 };

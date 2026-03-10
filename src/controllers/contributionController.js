@@ -124,3 +124,62 @@ exports.deleteContribution = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Bulk approve contributions
+ */
+exports.bulkApprove = async (req, res, next) => {
+  try {
+    const { ids, moderatorNote } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return errorResponse(res, "Vui lòng chọn ít nhất một đóng góp", 400);
+    }
+    if (ids.length > 50) {
+      return errorResponse(res, "Tối đa 50 đóng góp mỗi lần", 400);
+    }
+    const result = await contributionService.bulkApprove(
+      ids,
+      req.user._id,
+      moderatorNote || "",
+      req.user,
+    );
+    return successResponse(
+      res,
+      `Đã phê duyệt ${result.success} đóng góp`,
+      result,
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Bulk reject contributions
+ */
+exports.bulkReject = async (req, res, next) => {
+  try {
+    const { ids, moderatorNote } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return errorResponse(res, "Vui lòng chọn ít nhất một đóng góp", 400);
+    }
+    if (!moderatorNote) {
+      return errorResponse(res, "Vui lòng cung cấp lý do từ chối", 400);
+    }
+    if (ids.length > 50) {
+      return errorResponse(res, "Tối đa 50 đóng góp mỗi lần", 400);
+    }
+    const result = await contributionService.bulkReject(
+      ids,
+      req.user._id,
+      moderatorNote,
+      req.user,
+    );
+    return successResponse(
+      res,
+      `Đã từ chối ${result.success} đóng góp`,
+      result,
+    );
+  } catch (error) {
+    next(error);
+  }
+};

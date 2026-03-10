@@ -142,9 +142,19 @@ const signOff = () =>
     Trân trọng,<br/><strong>Đội ngũ OpenDict</strong>
   </p>`;
 
-// ─────────────────────────────────────────────────────────
-//  Email senders
-// ─────────────────────────────────────────────────────────
+const isEmailNotificationEnabled = async (userEmail, type) => {
+  try {
+    const User = require("../models/User");
+    const user = await User.findOne({ email: userEmail }).select(
+      "emailNotifications",
+    );
+    if (!user) return false;
+
+    return user.emailNotifications?.[type] !== false;
+  } catch {
+    return true;
+  }
+};
 
 /**
  * Gửi email xác thực tài khoản khi đăng ký.
@@ -182,7 +192,7 @@ exports.sendVerificationEmail = async (
       subject: "Xác thực tài khoản — OpenDict",
       html: buildEmailHtml("Xác thực tài khoản", "#16a34a", body),
     });
-    console.log(`[Email] Verification sent → ${userEmail}`);
+    console.log(`[Email] Verification sent  ${userEmail}`);
   } catch (error) {
     console.error("[Email] sendVerificationEmail error:", error);
     throw error;
@@ -279,6 +289,12 @@ exports.sendContributionApprovedEmail = async (
   contributionData,
 ) => {
   try {
+    if (!(await isEmailNotificationEnabled(userEmail, "contributions"))) {
+      console.log(
+        `[Email] ContributionApproved skipped (notifications off) → ${userEmail}`,
+      );
+      return;
+    }
     const { transporter, from } = await getMailConfig();
     const typeLabel =
       contributionData.type === "new_term"
@@ -333,6 +349,12 @@ exports.sendContributionRejectedEmail = async (
   contributionData,
 ) => {
   try {
+    if (!(await isEmailNotificationEnabled(userEmail, "contributions"))) {
+      console.log(
+        `[Email] ContributionRejected skipped (notifications off) → ${userEmail}`,
+      );
+      return;
+    }
     const { transporter, from } = await getMailConfig();
     const typeLabel =
       contributionData.type === "new_term"
@@ -391,6 +413,7 @@ exports.sendNewContributionNotificationToAdmins = async (
       role: { $in: ["admin", "moderator"] },
       status: "active",
       emailVerified: true,
+      "emailNotifications.moderation": { $ne: false },
     }).select("email fullName");
 
     if (!admins.length) {
@@ -470,6 +493,7 @@ exports.sendNewReportNotificationToAdmins = async (
       role: { $in: ["admin", "moderator"] },
       status: "active",
       emailVerified: true,
+      "emailNotifications.moderation": { $ne: false },
     }).select("email fullName");
 
     if (!admins.length) {
@@ -529,6 +553,12 @@ exports.sendNewReportNotificationToAdmins = async (
  */
 exports.sendReportResolvedEmail = async (userEmail, userName, reportData) => {
   try {
+    if (!(await isEmailNotificationEnabled(userEmail, "moderation"))) {
+      console.log(
+        `[Email] ReportResolved skipped (notifications off) → ${userEmail}`,
+      );
+      return;
+    }
     const { transporter, from } = await getMailConfig();
     const isResolved = reportData.status === "resolved";
     const statusLabel = isResolved ? "Đã xử lý" : "Đã đóng";
@@ -575,6 +605,12 @@ exports.sendCommentModeratedEmail = async (
   commentData,
 ) => {
   try {
+    if (!(await isEmailNotificationEnabled(userEmail, "moderation"))) {
+      console.log(
+        `[Email] CommentModerated skipped (notifications off) → ${userEmail}`,
+      );
+      return;
+    }
     const { transporter, from } = await getMailConfig();
     const isApproved = commentData.status === "approved";
     const accentColor = isApproved ? "#16a34a" : "#f97316";
@@ -646,8 +682,13 @@ exports.sendNewContentNotificationToModerators = async (
         role: "moderator",
         status: "active",
         "moderationPermissions.categories": categoryId,
+        "emailNotifications.moderation": { $ne: false },
       }).select("email fullName"),
-      User.find({ role: "admin", status: "active" }).select("email fullName"),
+      User.find({
+        role: "admin",
+        status: "active",
+        "emailNotifications.moderation": { $ne: false },
+      }).select("email fullName"),
     ]);
 
     const allRecipients = [...moderators, ...admins];
@@ -725,6 +766,12 @@ exports.sendImportNotificationEmail = async (
   importData,
 ) => {
   try {
+    if (!(await isEmailNotificationEnabled(adminEmail, "system"))) {
+      console.log(
+        `[Email] ImportNotification skipped (notifications off) → ${adminEmail}`,
+      );
+      return;
+    }
     const { transporter, from } = await getMailConfig();
 
     const errorsHtml =

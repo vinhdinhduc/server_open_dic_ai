@@ -9,11 +9,13 @@ const {
 const { validatePagination, validate } = require("../middlewares/validate");
 const { MODERATION_PERMISSIONS } = require("../utils/constants");
 const { reportValidators } = require("../validators");
+const { verifyRecaptcha } = require("../middlewares/recaptcha");
 
 // Tạo báo xấu - User đã đăng nhập
 router.post(
   "/",
   authenticate,
+  verifyRecaptcha,
   reportValidators.create,
   validate,
   reportController.createReport,

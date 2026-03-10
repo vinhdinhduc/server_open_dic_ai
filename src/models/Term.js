@@ -64,6 +64,11 @@ const termSchema = new mongoose.Schema(
       default: 0,
     },
     tags: [String],
+    sourceType: {
+      type: String,
+      enum: ["system_import", "user_contribution", "admin_created"],
+      default: "admin_created",
+    },
   },
   {
     timestamps: true,

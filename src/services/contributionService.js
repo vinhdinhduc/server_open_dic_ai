@@ -22,7 +22,6 @@ exports.createContribution = async (userId, contributionData) => {
   const contributor = await User.findById(userId).select("fullName email");
 
   // Gửi email thông báo cho admin (không chờ kết quả)
-  console.log("Check contribution data", contributionData, contributor);
 
   emailService
     .sendNewContributionNotificationToAdmins(contributionData, contributor)
@@ -160,6 +159,7 @@ exports.approveContribution = async (
       category: contribution.category,
       createdBy: contribution.contributor,
       status: TERM_STATUS.APPROVED,
+      sourceType: "user_contribution",
     });
     //Tăng contribution count của user
     await User.findByIdAndUpdate(contribution.contributor, {
@@ -323,4 +323,48 @@ exports.deleteContribution = async (contributionId) => {
   return {
     message: "Xoá đóng góp thành công",
   };
+};
+
+// Bulk approve contributions
+exports.bulkApprove = async (
+  contributionIds,
+  moderatorId,
+  moderatorNote = "",
+  user = null,
+) => {
+  const results = { success: 0, failed: 0, errors: [] };
+
+  for (const id of contributionIds) {
+    try {
+      await exports.approveContribution(id, moderatorId, moderatorNote, user);
+      results.success++;
+    } catch (err) {
+      results.failed++;
+      results.errors.push({ id, error: err.message });
+    }
+  }
+
+  return results;
+};
+
+// Bulk reject contributions
+exports.bulkReject = async (
+  contributionIds,
+  moderatorId,
+  moderatorNote = "",
+  user = null,
+) => {
+  const results = { success: 0, failed: 0, errors: [] };
+
+  for (const id of contributionIds) {
+    try {
+      await exports.rejectContribution(id, moderatorId, moderatorNote, user);
+      results.success++;
+    } catch (err) {
+      results.failed++;
+      results.errors.push({ id, error: err.message });
+    }
+  }
+
+  return results;
 };

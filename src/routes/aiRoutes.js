@@ -35,6 +35,16 @@ router.get("/config", auth.authenticate, isAdmin, aiController.getConfig);
 // @access  Private (Admin only)
 router.put("/config", auth.authenticate, isAdmin, aiController.updateConfig);
 
+// @route   POST /api/ai/ask-about-term
+// @desc    AI trả lời câu hỏi về một thuật ngữ cụ thể (từ trang chi tiết)
+// @access  Private
+router.post(
+  "/ask-about-term",
+  auth.authenticate,
+  aiLimiter,
+  aiController.askAboutSpecificTerm,
+);
+
 // @route   POST /api/ai/test
 // @desc    Test kết nối AI
 // @access  Private (Admin only)

@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["active", "inactive", "banned"],
+      enum: ["active", "inactive", "banned", "locked"],
       default: "active",
     },
     emailVerified: {
@@ -48,6 +48,11 @@ const userSchema = new mongoose.Schema(
     contributionCount: {
       type: Number,
       default: 0,
+    },
+    emailNotifications: {
+      contributions: { type: Boolean, default: true },
+      moderation: { type: Boolean, default: true },
+      system: { type: Boolean, default: true },
     },
     lastLogin: Date,
     // Moderation permissions for moderators

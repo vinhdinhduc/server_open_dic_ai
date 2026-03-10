@@ -10,12 +10,6 @@ exports.validate = (req, res, next) => {
       message: error.msg,
     }));
 
-    // Log chi tiết để debug
-    console.log("=== VALIDATION ERROR ===");
-    console.log("Request Body:", JSON.stringify(req.body, null, 2));
-    console.log("Validation Errors:", JSON.stringify(errorMessages, null, 2));
-    console.log("=======================");
-
     return errorResponse(res, "Dữ liệu không hợp lệ", 400, errorMessages);
   }
 

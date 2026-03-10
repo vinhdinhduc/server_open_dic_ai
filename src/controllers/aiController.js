@@ -116,8 +116,6 @@ const getAIStatus = async (req, res) => {
  */
 const getConfig = async (req, res) => {
   try {
-    console.log("calll");
-
     const config = await aiService.getAIConfig();
 
     // Ẩn một phần API key để bảo mật
@@ -128,7 +126,6 @@ const getConfig = async (req, res) => {
         : "",
       hasApiKey: !!config.apiKey,
     };
-    console.log("calll", maskedConfig);
 
     return successResponse(res, "Lấy cấu hình AI thành công", maskedConfig);
   } catch (error) {
@@ -143,14 +140,23 @@ const getConfig = async (req, res) => {
  */
 const updateConfig = async (req, res) => {
   try {
-    const { apiKey, provider, model, temperature, maxTokens } = req.body;
+    const {
+      apiKey,
+      provider,
+      model,
+      temperature,
+      maxTokens,
+      promptDefinition,
+      promptExplanation,
+      promptAnswer,
+    } = req.body;
     const userId = req.user.id;
 
     // Validation
-    if (provider && !["gemini", "openai"].includes(provider)) {
+    if (provider && !["gemini", "openai", "grok"].includes(provider)) {
       return errorResponse(
         res,
-        "Provider không hợp lệ. Chỉ hỗ trợ: gemini, openai",
+        "Provider không hợp lệ. Chỉ hỗ trợ: gemini, openai, grok",
         400,
       );
     }
@@ -164,13 +170,22 @@ const updateConfig = async (req, res) => {
 
     if (maxTokens !== undefined) {
       const tokens = parseInt(maxTokens);
-      if (isNaN(tokens) || tokens < 100 || tokens > 4000) {
-        return errorResponse(res, "Max tokens phải là số từ 100 đến 4000", 400);
+      if (isNaN(tokens) || tokens < 100 || tokens > 8192) {
+        return errorResponse(res, "Max tokens phải là số từ 100 đến 8192", 400);
       }
     }
 
     const result = await aiService.updateConfig(
-      { apiKey, provider, model, temperature, maxTokens },
+      {
+        apiKey,
+        provider,
+        model,
+        temperature,
+        maxTokens,
+        promptDefinition,
+        promptExplanation,
+        promptAnswer,
+      },
       userId,
     );
 
@@ -200,6 +215,99 @@ const testConnection = async (req, res) => {
   }
 };
 
+/**
+ * AI trả lời câu hỏi về thuật ngữ cụ thể (từ trang chi tiết)
+ * POST /api/ai/ask-about-term
+ */
+const askAboutSpecificTerm = async (req, res) => {
+  try {
+    const { termId, question, language = "vi" } = req.body;
+    const userId = req.user.id;
+
+    if (!termId) {
+      return errorResponse(res, "termId là bắt buộc", 400);
+    }
+
+    const Term = require("../models/Term");
+    const AICache = require("../models/AICache");
+
+    // Check cache first (only when no custom question)
+    if (!question) {
+      const cached = await AICache.findOne({ termId, language }).lean();
+      if (cached && cached.response) {
+        return successResponse(res, "Đã nhận được phản hồi từ AI (cache)", {
+          ...cached.response,
+          cached: true,
+        });
+      }
+    }
+
+    const termDoc = await Term.findById(termId)
+      .populate("category", "name")
+      .populate("relatedTerms", "term");
+
+    if (!termDoc) {
+      return errorResponse(res, "Không tìm thấy thuật ngữ", 404);
+    }
+
+    const termName =
+      termDoc.term?.[language] || termDoc.term?.vi || termDoc.term?.en || "";
+    const definition =
+      termDoc.definition?.[language] || termDoc.definition?.vi || "";
+    const explanation =
+      termDoc.detailedExplanation?.[language] ||
+      termDoc.detailedExplanation?.vi ||
+      "";
+    const categoryName =
+      termDoc.category?.name?.[language] || termDoc.category?.name?.vi || "";
+    const relatedNames = (termDoc.relatedTerms || [])
+      .map((r) => r.term?.[language] || r.term?.vi || "")
+      .filter(Boolean)
+      .join(", ");
+
+    const contextPrompt = question
+      ? `Thuật ngữ: "${termName}"\nDanh mục: ${categoryName}\nĐịnh nghĩa hiện tại: ${definition}\nGiải thích: ${explanation}\nTừ liên quan: ${relatedNames}\n\nCâu hỏi của người dùng: ${question}`
+      : termName;
+
+    const result = await aiService.askAboutTerm(
+      contextPrompt,
+      language,
+      userId,
+    );
+
+    if (result.success) {
+      // Save to cache (only standard term queries, not custom questions)
+      if (!question && result.data) {
+        const cacheData = {
+          definition: result.data.definition,
+          detailedExplanation: result.data.detailedExplanation,
+          examples: result.data.examples,
+          partOfSpeech: result.data.partOfSpeech,
+          field: result.data.field,
+          relatedTerms: result.data.relatedTerms,
+          tags: result.data.tags,
+        };
+        await AICache.findOneAndUpdate(
+          { termId, language },
+          {
+            response: cacheData,
+            provider: result.data.provider,
+            model: result.data.model,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          },
+          { upsert: true },
+        ).catch((err) => console.error("AI cache save error:", err));
+      }
+      return successResponse(res, "Đã nhận được phản hồi từ AI", result.data);
+    } else {
+      return errorResponse(res, "Không thể kết nối với dịch vụ AI", 500);
+    }
+  } catch (error) {
+    console.error("AI Ask About Term Error:", error);
+    return errorResponse(res, "Đã có lỗi xảy ra", 500);
+  }
+};
+
 module.exports = {
   askAboutTerm,
   getChatHistory,
@@ -207,4 +315,5 @@ module.exports = {
   getConfig,
   updateConfig,
   testConnection,
+  askAboutSpecificTerm,
 };

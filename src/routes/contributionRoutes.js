@@ -10,6 +10,7 @@ const {
 const { contributionValidators } = require("../validators");
 const { MODERATION_PERMISSIONS } = require("../utils/constants");
 const { contentCreationLimiter } = require("../middlewares/rateLimiter");
+const { verifyRecaptcha } = require("../middlewares/recaptcha");
 
 const router = express.Router();
 
@@ -22,9 +23,34 @@ router.post(
   "/",
   authenticate,
   contentCreationLimiter,
+  verifyRecaptcha,
   contributionValidators.create,
   validate,
   contributionController.createContribution,
+);
+
+/**
+ * @route   POST /api/contributions/bulk-approve
+ * @desc    Phê duyệt nhiều đóng góp cùng lúc
+ * @access  Private - Moderator/Admin
+ */
+router.post(
+  "/bulk-approve",
+  authenticate,
+  checkModeratorPermission(MODERATION_PERMISSIONS.CONTRIBUTIONS),
+  contributionController.bulkApprove,
+);
+
+/**
+ * @route   POST /api/contributions/bulk-reject
+ * @desc    Từ chối nhiều đóng góp cùng lúc
+ * @access  Private - Moderator/Admin
+ */
+router.post(
+  "/bulk-reject",
+  authenticate,
+  checkModeratorPermission(MODERATION_PERMISSIONS.CONTRIBUTIONS),
+  contributionController.bulkReject,
 );
 
 /**

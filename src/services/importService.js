@@ -56,6 +56,7 @@ exports.importFromFile = async (file, userId, categoryId) => {
 
         const termVi =
           row.term_vi ||
+          row["* Thuật ngữ (VI)"] ||
           row["Thuật ngữ (VI)"] ||
           row["term"] ||
           row["Thuật ngữ"] ||
@@ -66,6 +67,7 @@ exports.importFromFile = async (file, userId, categoryId) => {
           row.term_lo || row["Thuật ngữ (LO)"] || row["term_lao"] || "";
         const defVi =
           row.definition_vi ||
+          row["* Định nghĩa (VI)"] ||
           row["Định nghĩa (VI)"] ||
           row["definition"] ||
           row["Định nghĩa"] ||
@@ -74,6 +76,16 @@ exports.importFromFile = async (file, userId, categoryId) => {
         const defLo = row.definition_lo || row["Định nghĩa (LO)"] || "";
         const rowCategory = row.category || row["Danh mục"] || "";
         const partOfSpeech = row.part_of_speech || row["Loại từ"] || "";
+
+        // New fields
+        const explainVi =
+          row.detailedExplanation_vi || row["Giải thích chi tiết (VI)"] || "";
+        const explainEn =
+          row.detailedExplanation_en || row["Giải thích chi tiết (EN)"] || "";
+        const explainLo =
+          row.detailedExplanation_lo || row["Giải thích chi tiết (LO)"] || "";
+        const rawExamples = row.examples || row["Ví dụ"] || "";
+        const rawTags = row.tags || row["Tags"] || "";
 
         if (!termVi) {
           errors.push({
@@ -128,13 +140,43 @@ exports.importFromFile = async (file, userId, categoryId) => {
           continue;
         }
 
+        // Parse examples: semicolon-separated, each example stored as {vi: text}
+        const examples = rawExamples
+          ? rawExamples
+              .split(";")
+              .map((e) => e.trim())
+              .filter(Boolean)
+              .map((e) => ({ vi: e }))
+          : [];
+
+        // Parse tags: comma-separated
+        const tags = rawTags
+          ? rawTags
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : [];
+
+        // Build detailedExplanation object
+        const hasExplanation = explainVi || explainEn || explainLo;
+
         const term = await Term.create({
           term: { vi: termVi, en: termEn, lo: termLo },
           definition: { vi: defVi, en: defEn, lo: defLo },
+          ...(hasExplanation && {
+            detailedExplanation: {
+              vi: explainVi,
+              en: explainEn,
+              lo: explainLo,
+            },
+          }),
+          ...(examples.length > 0 && { examples }),
+          ...(tags.length > 0 && { tags }),
           partOfSpeech,
           category: termCategory,
           createdBy: userId,
-          status: "approved",
+          status: "pending",
+          sourceType: "system_import",
         });
 
         // Update category term count

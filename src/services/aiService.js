@@ -9,12 +9,24 @@ const getAIConfig = async () => {
   const provider = await SystemConfig.getValue("ai_provider", "gemini");
   const model = await SystemConfig.getValue("ai_model", "gemini-2.5-flash");
   const maxTokens = await SystemConfig.getValue("ai_max_tokens", 8192);
+  const promptDefinition = await SystemConfig.getValue(
+    "ai_prompt_definition",
+    "",
+  );
+  const promptExplanation = await SystemConfig.getValue(
+    "ai_prompt_explanation",
+    "",
+  );
+  const promptAnswer = await SystemConfig.getValue("ai_prompt_answer", "");
 
   return {
     apiKey,
     provider,
     model,
     maxTokens,
+    promptDefinition,
+    promptExplanation,
+    promptAnswer,
   };
 };
 
@@ -499,6 +511,33 @@ const updateConfig = async (configData, userId) => {
         userId,
       );
       updates.push("Max Tokens");
+    }
+
+    if (configData.promptDefinition !== undefined) {
+      await SystemConfig.setValue(
+        "ai_prompt_definition",
+        configData.promptDefinition,
+        userId,
+      );
+      updates.push("Prompt Definition");
+    }
+
+    if (configData.promptExplanation !== undefined) {
+      await SystemConfig.setValue(
+        "ai_prompt_explanation",
+        configData.promptExplanation,
+        userId,
+      );
+      updates.push("Prompt Explanation");
+    }
+
+    if (configData.promptAnswer !== undefined) {
+      await SystemConfig.setValue(
+        "ai_prompt_answer",
+        configData.promptAnswer,
+        userId,
+      );
+      updates.push("Prompt Answer");
     }
 
     return {
