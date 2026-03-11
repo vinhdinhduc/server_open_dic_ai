@@ -11,13 +11,13 @@ const getAIConfig = async () => {
   const maxTokens = await SystemConfig.getValue("ai_max_tokens", 8192);
   const promptDefinition = await SystemConfig.getValue(
     "ai_prompt_definition",
-    "",
+    {},
   );
   const promptExplanation = await SystemConfig.getValue(
     "ai_prompt_explanation",
-    "",
+    {},
   );
-  const promptAnswer = await SystemConfig.getValue("ai_prompt_answer", "");
+  const promptAnswer = await SystemConfig.getValue("ai_prompt_answer", {});
 
   return {
     apiKey,
@@ -114,7 +114,7 @@ const askAboutTerm = async (term, language = "vi", userId) => {
     }
 
     // Tạo prompt dựa trên ngôn ngữ
-    const prompt = generateFullPrompt(term, language);
+    const prompt = generateFullPrompt(term, language, config);
 
     // Gọi API của nhà cung cấp AI
     const aiResponse = await callAiProvider(prompt, config);
@@ -226,8 +226,8 @@ const callGeminiAPI = async (prompt, config) => {
 /**
  * Tạo prompt đầy đủ
  */
-const generateFullPrompt = (term, language) => {
-  const systemPrompt = getSystemPrompt(language);
+const generateFullPrompt = (term, language, config = {}) => {
+  const systemPrompt = getSystemPrompt(language, config);
   const userPrompt = generatePrompt(term, language);
 
   return `${systemPrompt}\n\n${userPrompt}`;
@@ -236,7 +236,17 @@ const generateFullPrompt = (term, language) => {
 /**
  * Tạo system prompt cho AI — yêu cầu trả về JSON chuẩn cấu trúc Term model
  */
-const getSystemPrompt = (language) => {
+const getSystemPrompt = (language, config = {}) => {
+  // Nếu có custom prompt từ DB cho ngôn ngữ hiện tại, sử dụng nó
+  const customDefinition =
+    config.promptDefinition && typeof config.promptDefinition === "object"
+      ? config.promptDefinition[language]
+      : "";
+  const customExplanation =
+    config.promptExplanation && typeof config.promptExplanation === "object"
+      ? config.promptExplanation[language]
+      : "";
+
   const jsonSchema = `{
   "definition": "Định nghĩa ngắn gọn, chính xác (1-2 câu)",
   "detailedExplanation": "Giải thích chi tiết, dễ hiểu (khoảng 2 đoạn vừa đủ không quá dài)",
@@ -297,7 +307,23 @@ ${jsonSchema}
 - ສົ່ງຄືນ JSON ທີ່ຖືກຕ້ອງເທົ່ານັ້ນ`,
   };
 
-  return prompts[language] || prompts.vi;
+  let basePrompt = prompts[language] || prompts.vi;
+
+  // Thêm custom prompt từ DB nếu có
+  const customParts = [];
+  if (customDefinition) {
+    customParts.push(`Hướng dẫn thêm cho definition: ${customDefinition}`);
+  }
+  if (customExplanation) {
+    customParts.push(
+      `Hướng dẫn thêm cho detailedExplanation: ${customExplanation}`,
+    );
+  }
+  if (customParts.length > 0) {
+    basePrompt += `\n\n${customParts.join("\n")}`;
+  }
+
+  return basePrompt;
 };
 
 /**
