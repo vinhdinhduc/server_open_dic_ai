@@ -131,6 +131,36 @@ exports.getTerms = async (req, res, next) => {
   }
 };
 
+// Moderator: Lấy thuật ngữ trong danh mục được phân công
+exports.getTermsForModerator = async (req, res, next) => {
+  try {
+    const user = req.user;
+    const { category, status, sortBy, search } = req.query;
+    const { page, limit } = req.pagination;
+
+    // Admin sees all categories; moderator only sees assigned categories
+    let categoryIds = [];
+    if (user.role === "admin") {
+      // No restriction for admin
+    } else {
+      categoryIds = user.moderationPermissions?.categories?.map(String) || [];
+    }
+
+    const result = await termService.getTermsForModerator({
+      categoryIds,
+      category,
+      status,
+      sortBy,
+      search,
+      page,
+      limit,
+    });
+    return successResponse(res, "Lấy danh sách thuật ngữ thành công", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Admin: Lấy tất cả terms với stats
 exports.getTermsForAdmin = async (req, res, next) => {
   try {

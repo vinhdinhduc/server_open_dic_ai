@@ -67,6 +67,19 @@ router.get("/stats", authenticate, isModerator, termController.getTermStats);
 router.get("/export", authenticate, isModerator, termController.exportTerms);
 
 /**
+ * @route   GET /api/terms/moderator-terms
+ * @desc    Lấy danh sách thuật ngữ cho moderator (chỉ trong danh mục được phân công)
+ * @access  Private - Moderator/Admin
+ */
+router.get(
+  "/moderator-terms",
+  authenticate,
+  isModerator,
+  validatePagination,
+  termController.getTermsForModerator,
+);
+
+/**
  * @route   GET /api/terms/admin
  * @desc    Lấy danh sách thuật ngữ cho admin (tất cả status)
  * @access  Private - Moderator/Admin

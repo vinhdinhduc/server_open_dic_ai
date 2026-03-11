@@ -209,6 +209,86 @@ exports.getTerms = async (options = {}) => {
   };
 };
 
+// Lấy danh sách thuật ngữ cho moderator (chỉ trong danh mục được phân công)
+exports.getTermsForModerator = async (options = {}) => {
+  const {
+    categoryIds = [],
+    category,
+    status,
+    search,
+    sortBy = "newest",
+    page = 1,
+    limit = 10,
+  } = options;
+  const skip = (page - 1) * limit;
+  const query = {};
+
+  // Restrict to moderator's assigned categories
+  if (categoryIds.length > 0) {
+    const validIds = categoryIds
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+    // If user further filters to a specific category, intersect with assigned list
+    if (
+      category &&
+      category !== "all" &&
+      mongoose.Types.ObjectId.isValid(category)
+    ) {
+      const requested = new mongoose.Types.ObjectId(category);
+      const isAssigned = validIds.some((id) => id.equals(requested));
+      query.category = isAssigned ? requested : { $in: [] }; // empty result if not assigned
+    } else {
+      query.category = { $in: validIds };
+    }
+  }
+
+  // Filter by status (moderator can see all statuses)
+  if (status && status !== "all") {
+    query.status = status;
+  }
+
+  // Search
+  if (search && search.trim().length >= 2) {
+    const trimmed = search.trim();
+    query.$text = { $search: trimmed };
+  }
+
+  let sort = {};
+  if (sortBy === "popular") {
+    sort.viewCount = -1;
+  } else if (sortBy === "newest") {
+    sort.createdAt = -1;
+  } else if (sortBy === "alphabet") {
+    sort["term.vi"] = 1;
+  } else if (sortBy === "oldest") {
+    sort.createdAt = 1;
+  }
+
+  const [terms, total] = await Promise.all([
+    Term.find(query)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .populate("category", "name slug")
+      .populate("createdBy", "fullName")
+      .select(
+        "term definition category viewCount favoriteCount commentCount status createdAt updatedAt",
+      )
+      .lean(),
+    Term.countDocuments(query),
+  ]);
+
+  return {
+    terms,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+    },
+  };
+};
+
 // Lấy thống kê thuật ngữ
 exports.getTermStats = async () => {
   const stats = await Term.aggregate([
