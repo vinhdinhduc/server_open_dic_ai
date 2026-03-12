@@ -4,6 +4,7 @@ const User = require("../models/User");
 const Notification = require("../models/Notification");
 const emailService = require("./emailService");
 const notificationService = require("./notificationService");
+const { normalizeContributionData } = require("../utils/helpers");
 const {
   CONTRIBUTION_STATUS,
   TERM_STATUS,
@@ -13,7 +14,7 @@ const {
 //Tạo đóng góp thuật ngữ mới
 exports.createContribution = async (userId, contributionData) => {
   const newContribution = await Contribution.create({
-    ...contributionData,
+    ...normalizeContributionData(contributionData),
     contributor: userId,
     status: CONTRIBUTION_STATUS.PENDING,
   });

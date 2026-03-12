@@ -6,11 +6,13 @@ exports.createContribution = async (req, res, next) => {
   try {
     const contributionData = req.body;
     const userId = req.user._id;
+    console.log("Check contribution Data", contributionData);
 
     const newContribution = await contributionService.createContribution(
       userId,
       contributionData,
     );
+    console.log("Check new contribution", newContribution);
     return successResponse(
       res,
       "Đóng góp của bạn đã được gửi và đang chờ kiểm duyệt",
