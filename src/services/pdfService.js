@@ -439,7 +439,7 @@ exports.generateCertificate = async (request, user, history = []) => {
         {
           x: 402,
           w: 155,
-          title: "BAN QUẢN TRỊ OPENDICT",
+          title: "BAN QUẢN TRỊ UTB OPENDICT",
           sub: "(Ký, đóng dấu)",
           name: "",
         },
