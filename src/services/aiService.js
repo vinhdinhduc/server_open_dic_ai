@@ -1,4 +1,88 @@
 const SystemConfig = require("../models/SystemConfig");
+const notificationService = require("./notificationService");
+const { NOTIFICATION_TYPES } = require("../utils/constants");
+
+// In-memory daily usage counter (resets on server restart or daily)
+let dailyUsage = {
+  date: new Date().toISOString().split("T")[0],
+  requestCount: 0,
+  tokenCount: 0,
+  notifiedWarning: false,
+  notifiedLimit: false,
+};
+
+const resetDailyUsageIfNeeded = () => {
+  const today = new Date().toISOString().split("T")[0];
+  if (dailyUsage.date !== today) {
+    dailyUsage = {
+      date: today,
+      requestCount: 0,
+      tokenCount: 0,
+      notifiedWarning: false,
+      notifiedLimit: false,
+    };
+  }
+};
+
+const trackAPIUsage = async (tokensUsed = 0) => {
+  resetDailyUsageIfNeeded();
+  dailyUsage.requestCount++;
+  dailyUsage.tokenCount += tokensUsed;
+
+  const maxDailyRequests = await SystemConfig.getValue(
+    "ai_max_daily_requests",
+    1000,
+  );
+  const maxDailyTokens = await SystemConfig.getValue(
+    "ai_max_daily_tokens",
+    500000,
+  );
+
+  const requestPercent = (dailyUsage.requestCount / maxDailyRequests) * 100;
+  const tokenPercent =
+    maxDailyTokens > 0 ? (dailyUsage.tokenCount / maxDailyTokens) * 100 : 0;
+
+  // Warning at 80%
+  if (
+    !dailyUsage.notifiedWarning &&
+    (requestPercent >= 80 || tokenPercent >= 80)
+  ) {
+    dailyUsage.notifiedWarning = true;
+    await notificationService.notifyAdmins({
+      type: NOTIFICATION_TYPES.API_LIMIT_WARNING,
+      title: " Cảnh báo: API AI sắp đạt giới hạn",
+      message: `Sử dụng API hôm nay: ${dailyUsage.requestCount}/${maxDailyRequests} requests (${requestPercent.toFixed(0)}%), ${dailyUsage.tokenCount}/${maxDailyTokens} tokens (${tokenPercent.toFixed(0)}%). Hãy cân nhắc tăng giới hạn hoặc hạn chế sử dụng.`,
+      actionUrl: "/admin/settings/api-keys",
+    });
+  }
+
+  // Limit reached at 100%
+  if (
+    !dailyUsage.notifiedLimit &&
+    (requestPercent >= 100 || tokenPercent >= 100)
+  ) {
+    dailyUsage.notifiedLimit = true;
+    await notificationService.notifyAdmins({
+      type: NOTIFICATION_TYPES.API_LIMIT_REACHED,
+      title: " API AI đã đạt giới hạn trong ngày",
+      message: `API AI đã sử dụng hết giới hạn: ${dailyUsage.requestCount}/${maxDailyRequests} requests, ${dailyUsage.tokenCount}/${maxDailyTokens} tokens. Các yêu cầu mới sẽ trả về phản hồi mẫu cho đến ngày mai.`,
+      actionUrl: "/admin/settings/api-keys",
+    });
+  }
+
+  return {
+    limitReached: requestPercent >= 100 || tokenPercent >= 100,
+    requestCount: dailyUsage.requestCount,
+    tokenCount: dailyUsage.tokenCount,
+    maxDailyRequests,
+    maxDailyTokens,
+  };
+};
+
+const getAPIUsageStats = () => {
+  resetDailyUsageIfNeeded();
+  return { ...dailyUsage };
+};
 
 /**
  * Lấy cấu
@@ -113,11 +197,24 @@ const askAboutTerm = async (term, language = "vi", userId) => {
       return getMockResponse(term, language);
     }
 
+    // Check daily API limits before calling
+    const usageCheck = await trackAPIUsage(0);
+    if (usageCheck.limitReached) {
+      console.warn("AI API daily limit reached, returning mock response");
+      return getMockResponse(term, language);
+    }
+
     // Tạo prompt dựa trên ngôn ngữ
     const prompt = generateFullPrompt(term, language, config);
 
     // Gọi API của nhà cung cấp AI
     const aiResponse = await callAiProvider(prompt, config);
+
+    // Track token usage (estimate from response length)
+    const estimatedTokens = Math.ceil(
+      (prompt.length + (aiResponse?.length || 0)) / 4,
+    );
+    await trackAPIUsage(estimatedTokens);
 
     // Parse AI response thành cấu trúc khớp Term model
     const structuredData = parseAIResponse(aiResponse, term, language, config);
@@ -610,4 +707,5 @@ module.exports = {
   getStatus,
   updateConfig,
   testConnection,
+  getAPIUsageStats,
 };

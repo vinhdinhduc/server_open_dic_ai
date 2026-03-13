@@ -35,6 +35,7 @@ const aiRoutes = require("./routes/aiRoutes");
 const systemConfigRoutes = require("./routes/systemConfigRoutes");
 const reportStatsRoutes = require("./routes/reportStatsRoutes");
 const feedbackRoutes = require("./routes/feedbackRoutes");
+const reputationRoutes = require("./routes/reputationRoutes");
 
 const app = express();
 
@@ -127,6 +128,7 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/system-config", systemConfigRoutes);
 app.use("/api/report-stats", reportStatsRoutes);
 app.use("/api/contact", feedbackRoutes);
+app.use("/api/reputation", reputationRoutes);
 
 // Health check (không rate limit)
 app.get("/health", (req, res) => {

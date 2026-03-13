@@ -4,6 +4,7 @@ const Notification = require("../models/Notification");
 const User = require("../models/User");
 const emailService = require("./emailService");
 const notificationService = require("./notificationService");
+const reputationService = require("./reputationService");
 const {
   REPORT_STATUS,
   REPORT_TYPES,
@@ -247,6 +248,18 @@ exports.resolveReport = async (
       .catch((err) => {
         console.error("Failed to send report resolved email:", err);
       });
+  }
+
+  // Cộng/trừ điểm uy tín cho người báo xấu
+  const reason = report.reason || "other";
+  if (status === REPORT_STATUS.RESOLVED) {
+    reputationService
+      .onReportResolved(report.reporter, report._id, reason)
+      .catch(console.error);
+  } else if (status === REPORT_STATUS.REJECTED) {
+    reputationService
+      .onReportRejected(report.reporter, report._id, reason)
+      .catch(console.error);
   }
 
   return report;

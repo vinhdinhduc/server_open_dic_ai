@@ -4,6 +4,7 @@ const User = require("../models/User");
 const Notification = require("../models/Notification");
 const emailService = require("./emailService");
 const notificationService = require("./notificationService");
+const reputationService = require("./reputationService");
 const { normalizeContributionData } = require("../utils/helpers");
 const {
   CONTRIBUTION_STATUS,
@@ -43,6 +44,17 @@ exports.createContribution = async (userId, contributionData) => {
     .catch((err) => {
       console.error("Failed to notify moderators about new contribution:", err);
     });
+
+  // Cộng điểm uy tín khi gửi đóng góp
+  if (contributionData.type === "new_term") {
+    reputationService
+      .onTermSubmitted(userId, newContribution._id)
+      .catch(console.error);
+  } else {
+    reputationService
+      .onEditSubmitted(userId, newContribution._id)
+      .catch(console.error);
+  }
 
   return newContribution;
 };
@@ -224,6 +236,17 @@ exports.approveContribution = async (
       });
   }
 
+  // Cộng điểm uy tín khi duyệt
+  if (contribution.type === "new_term") {
+    reputationService
+      .onTermApproved(contribution.contributor, term._id)
+      .catch(console.error);
+  } else {
+    reputationService
+      .onEditApproved(contribution.contributor, contribution._id)
+      .catch(console.error);
+  }
+
   return { contribution, term };
 };
 //Từ chối đóng góp
@@ -300,6 +323,16 @@ exports.rejectContribution = async (
       .catch((err) => {
         console.error("Failed to send rejection email:", err);
       });
+    // Trừ điểm uy tín khi bị từ chối (spam/phá hoại)
+    if (contribution.type === "new_term") {
+      reputationService
+        .onTermRejectedSpam(contribution.contributor, contribution._id)
+        .catch(console.error);
+    } else {
+      reputationService
+        .onEditRejectedSabotage(contribution.contributor, contribution._id)
+        .catch(console.error);
+    }
   }
 
   return contribution;

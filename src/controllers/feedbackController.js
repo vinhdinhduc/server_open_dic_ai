@@ -1,21 +1,21 @@
 const Feedback = require("../models/Feedback");
 const ModeratorApplication = require("../models/ModeratorApplication");
 const User = require("../models/User");
-const { sendSuccess, sendError } = require("../utils/response");
+const { successResponse, errorResponse } = require("../utils/response");
 
 // === Public endpoints ===
 
 exports.submitFeedback = async (req, res) => {
   try {
-    const { name, email, type, message } = req.body;
+    const { name, email, type, subject, message } = req.body;
 
     if (!name || !email || !message) {
-      return sendError(res, "Vui lòng điền đầy đủ thông tin", 400);
+      return errorResponse(res, "Vui lòng điền đầy đủ thông tin", 400);
     }
 
-    const feedback = await Feedback.create({ name, email, type, message });
+    const feedback = await Feedback.create({ name, email, type, subject, message });
 
-    return sendSuccess(
+    return successResponse(
       res,
       { id: feedback._id },
       "Gửi phản hồi thành công",
@@ -23,7 +23,7 @@ exports.submitFeedback = async (req, res) => {
     );
   } catch (error) {
     console.error("Submit feedback error:", error);
-    return sendError(res, "Không thể gửi phản hồi", 500);
+    return errorResponse(res, "Không thể gửi phản hồi", 500);
   }
 };
 
@@ -32,7 +32,7 @@ exports.submitModeratorApplication = async (req, res) => {
     const { name, email, reason, experience } = req.body;
 
     if (!name || !email || !reason) {
-      return sendError(res, "Vui lòng điền đầy đủ thông tin", 400);
+      return errorResponse(res, "Vui lòng điền đầy đủ thông tin", 400);
     }
 
     // Check duplicate pending application
@@ -41,7 +41,7 @@ exports.submitModeratorApplication = async (req, res) => {
       status: "pending",
     });
     if (existing) {
-      return sendError(res, "Bạn đã có đơn đăng ký đang chờ xử lý", 400);
+      return errorResponse(res, "Bạn đã có đơn đăng ký đang chờ xử lý", 400);
     }
 
     const application = await ModeratorApplication.create({
@@ -51,7 +51,7 @@ exports.submitModeratorApplication = async (req, res) => {
       experience,
     });
 
-    return sendSuccess(
+    return successResponse(
       res,
       { id: application._id },
       "Gửi đăng ký thành công",
@@ -59,7 +59,7 @@ exports.submitModeratorApplication = async (req, res) => {
     );
   } catch (error) {
     console.error("Submit moderator application error:", error);
-    return sendError(res, "Không thể gửi đăng ký", 500);
+    return errorResponse(res, "Không thể gửi đăng ký", 500);
   }
 };
 
@@ -78,7 +78,7 @@ exports.getFeedbacks = async (req, res) => {
 
     const total = await Feedback.countDocuments(filter);
 
-    return sendSuccess(res, {
+    return successResponse(res, {
       feedbacks,
       pagination: {
         page: parseInt(page),
@@ -89,7 +89,7 @@ exports.getFeedbacks = async (req, res) => {
     });
   } catch (error) {
     console.error("Get feedbacks error:", error);
-    return sendError(res, "Không thể lấy danh sách phản hồi", 500);
+    return errorResponse(res, "Không thể lấy danh sách phản hồi", 500);
   }
 };
 
@@ -105,13 +105,13 @@ exports.updateFeedbackStatus = async (req, res) => {
     );
 
     if (!feedback) {
-      return sendError(res, "Không tìm thấy phản hồi", 404);
+      return errorResponse(res, "Không tìm thấy phản hồi", 404);
     }
 
-    return sendSuccess(res, feedback, "Cập nhật thành công");
+    return successResponse(res, feedback, "Cập nhật thành công");
   } catch (error) {
     console.error("Update feedback error:", error);
-    return sendError(res, "Không thể cập nhật", 500);
+    return errorResponse(res, "Không thể cập nhật", 500);
   }
 };
 
@@ -128,7 +128,7 @@ exports.getModeratorApplications = async (req, res) => {
 
     const total = await ModeratorApplication.countDocuments(filter);
 
-    return sendSuccess(res, {
+    return successResponse(res, {
       applications,
       pagination: {
         page: parseInt(page),
@@ -139,7 +139,7 @@ exports.getModeratorApplications = async (req, res) => {
     });
   } catch (error) {
     console.error("Get moderator applications error:", error);
-    return sendError(res, "Không thể lấy danh sách đơn đăng ký", 500);
+    return errorResponse(res, "Không thể lấy danh sách đơn đăng ký", 500);
   }
 };
 
@@ -149,12 +149,12 @@ exports.reviewModeratorApplication = async (req, res) => {
     const { status, adminNote } = req.body;
 
     if (!["approved", "rejected"].includes(status)) {
-      return sendError(res, "Trạng thái không hợp lệ", 400);
+      return errorResponse(res, "Trạng thái không hợp lệ", 400);
     }
 
     const application = await ModeratorApplication.findById(id);
     if (!application) {
-      return sendError(res, "Không tìm thấy đơn đăng ký", 404);
+      return errorResponse(res, "Không tìm thấy đơn đăng ký", 404);
     }
 
     application.status = status;
@@ -172,9 +172,9 @@ exports.reviewModeratorApplication = async (req, res) => {
       }
     }
 
-    return sendSuccess(res, application, "Xử lý đơn đăng ký thành công");
+    return successResponse(res, application, "Xử lý đơn đăng ký thành công");
   } catch (error) {
     console.error("Review moderator application error:", error);
-    return sendError(res, "Không thể xử lý đơn đăng ký", 500);
+    return errorResponse(res, "Không thể xử lý đơn đăng ký", 500);
   }
 };

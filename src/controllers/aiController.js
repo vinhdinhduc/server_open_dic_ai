@@ -308,6 +308,41 @@ const askAboutSpecificTerm = async (req, res) => {
   }
 };
 
+/**
+ * Lấy thống kê sử dụng API trong ngày (Admin only)
+ * GET /api/ai/usage
+ */
+const getAPIUsage = async (req, res) => {
+  try {
+    const stats = aiService.getAPIUsageStats();
+    const SystemConfig = require("../models/SystemConfig");
+    const maxDailyRequests = await SystemConfig.getValue(
+      "ai_max_daily_requests",
+      1000,
+    );
+    const maxDailyTokens = await SystemConfig.getValue(
+      "ai_max_daily_tokens",
+      500000,
+    );
+
+    return successResponse(res, "Lấy thống kê API thành công", {
+      ...stats,
+      maxDailyRequests,
+      maxDailyTokens,
+      requestPercent: ((stats.requestCount / maxDailyRequests) * 100).toFixed(
+        1,
+      ),
+      tokenPercent:
+        maxDailyTokens > 0
+          ? ((stats.tokenCount / maxDailyTokens) * 100).toFixed(1)
+          : "0",
+    });
+  } catch (error) {
+    console.error("Get API Usage Error:", error);
+    return errorResponse(res, "Không thể lấy thống kê API", 500);
+  }
+};
+
 module.exports = {
   askAboutTerm,
   getChatHistory,
@@ -316,4 +351,5 @@ module.exports = {
   updateConfig,
   testConnection,
   askAboutSpecificTerm,
+  getAPIUsage,
 };

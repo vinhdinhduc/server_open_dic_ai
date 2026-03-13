@@ -14,6 +14,12 @@ const feedbackSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+    subject: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+      default: "",
+    },
     type: {
       type: String,
       enum: ["feedback", "bug", "feature", "other"],

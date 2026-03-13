@@ -50,4 +50,9 @@ router.post(
 // @access  Private (Admin only)
 router.post("/test", auth.authenticate, isAdmin, aiController.testConnection);
 
+// @route   GET /api/ai/usage
+// @desc    Lấy thống kê sử dụng API trong ngày
+// @access  Private (Admin only)
+router.get("/usage", auth.authenticate, isAdmin, aiController.getAPIUsage);
+
 module.exports = router;
