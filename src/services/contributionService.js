@@ -61,9 +61,23 @@ exports.createContribution = async (userId, contributionData) => {
 //Get list contribution
 
 exports.getContribution = async (filter = {}, options = {}, user = null) => {
-  const { page = 1, limit = 20, status, category, contributor } = options;
+  const {
+    page = 1,
+    limit = 20,
+    status,
+    category,
+    contributor,
+    includeDeleted = false,
+    onlyDeleted = false,
+  } = options;
   const skip = (page - 1) * limit;
   const query = {};
+
+  if (onlyDeleted) {
+    query.isDeleted = true;
+  } else if (!includeDeleted) {
+    query.isDeleted = { $ne: true };
+  }
 
   // Nếu là moderator, chỉ lấy contributions trong danh mục được phép
   if (user && user.role === USER_ROLES.MODERATOR) {
@@ -117,7 +131,7 @@ exports.getContributionById = async (contributionId) => {
     .populate("moderator", "fullName ")
     .populate("targetTerm");
 
-  if (!contribution) {
+  if (!contribution || contribution.isDeleted) {
     const error = new Error("Không tìm thấy đóng góp");
     error.statusCode = 404;
     throw error;
@@ -133,7 +147,7 @@ exports.approveContribution = async (
   user = null,
 ) => {
   const contribution = await Contribution.findById(contributionId);
-  if (!contribution) {
+  if (!contribution || contribution.isDeleted) {
     const error = new Error("Không tìm thấy đóng góp");
     error.statusCode = 404;
     throw error;
@@ -257,7 +271,7 @@ exports.rejectContribution = async (
   user = null,
 ) => {
   const contribution = await Contribution.findById(contributionId);
-  if (!contribution) {
+  if (!contribution || contribution.isDeleted) {
     const error = new Error("Không tìm thấy đóng góp");
     error.statusCode = 404;
     throw error;
@@ -288,6 +302,9 @@ exports.rejectContribution = async (
   contribution.moderator = moderatorId;
   contribution.moderatorNote = moderatorNote;
   contribution.moderatedAt = new Date();
+  contribution.isDeleted = true;
+  contribution.deletedAt = new Date();
+  contribution.deletedBy = moderatorId;
   await contribution.save();
 
   //Send thông báo cho kiểm duyệt viên và admin
@@ -340,23 +357,48 @@ exports.rejectContribution = async (
 
 //Xoá đóng góp đã duyệt
 
-exports.deleteContribution = async (contributionId) => {
+exports.deleteContribution = async (contributionId, deletedBy = null) => {
   const contribution = await Contribution.findById(contributionId);
-  if (!contribution) {
+  if (!contribution || contribution.isDeleted) {
     const error = new Error("Không tìm thấy đóng góp");
     error.statusCode = 404;
     throw error;
   }
-  if (contribution.status !== CONTRIBUTION_STATUS.PENDING) {
-    const error = new Error("Chỉ có thể xoá đóng góp đang chờ duyệt");
+  if (contribution.status !== CONTRIBUTION_STATUS.REJECTED) {
+    const error = new Error(
+      "Chỉ có thể xoá mềm đóng góp đã được kiểm duyệt và bị từ chối",
+    );
     error.statusCode = 400;
     throw error;
   }
 
-  await contribution.deleteOne();
+  contribution.isDeleted = true;
+  contribution.deletedAt = new Date();
+  contribution.deletedBy = deletedBy;
+  await contribution.save();
   return {
-    message: "Xoá đóng góp thành công",
+    message: "Đã chuyển đóng góp vào thùng rác",
   };
+};
+
+exports.restoreContribution = async (contributionId) => {
+  const contribution = await Contribution.findById(contributionId);
+  if (!contribution || !contribution.isDeleted) {
+    const error = new Error("Không tìm thấy đóng góp trong thùng rác");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  contribution.isDeleted = false;
+  contribution.deletedAt = null;
+  contribution.deletedBy = null;
+  await contribution.save();
+  return contribution;
+};
+
+exports.emptyContributionTrash = async () => {
+  const result = await Contribution.deleteMany({ isDeleted: true });
+  return { deletedCount: result.deletedCount || 0 };
 };
 
 // Bulk approve contributions

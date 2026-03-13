@@ -13,12 +13,18 @@ exports.submitFeedback = async (req, res) => {
       return errorResponse(res, "Vui lòng điền đầy đủ thông tin", 400);
     }
 
-    const feedback = await Feedback.create({ name, email, type, subject, message });
+    const feedback = await Feedback.create({
+      name,
+      email,
+      type,
+      subject,
+      message,
+    });
 
     return successResponse(
       res,
-      { id: feedback._id },
       "Gửi phản hồi thành công",
+      { id: feedback._id },
       201,
     );
   } catch (error) {
@@ -53,8 +59,8 @@ exports.submitModeratorApplication = async (req, res) => {
 
     return successResponse(
       res,
-      { id: application._id },
       "Gửi đăng ký thành công",
+      { id: application._id },
       201,
     );
   } catch (error) {
@@ -78,7 +84,7 @@ exports.getFeedbacks = async (req, res) => {
 
     const total = await Feedback.countDocuments(filter);
 
-    return successResponse(res, {
+    return successResponse(res, "Lấy danh sách phản hồi thành công", {
       feedbacks,
       pagination: {
         page: parseInt(page),
@@ -128,7 +134,7 @@ exports.getModeratorApplications = async (req, res) => {
 
     const total = await ModeratorApplication.countDocuments(filter);
 
-    return successResponse(res, {
+    return successResponse(res, "Lấy danh sách đơn đăng ký thành công", {
       applications,
       pagination: {
         page: parseInt(page),

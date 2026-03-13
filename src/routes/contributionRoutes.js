@@ -117,4 +117,29 @@ router.delete(
   contributionController.deleteContribution,
 );
 
+/**
+ * @route   PUT /api/contributions/:id/restore
+ * @desc    Khôi phục đóng góp từ thùng rác
+ * @access  Private - Moderator/Admin
+ */
+router.put(
+  "/:id/restore",
+  authenticate,
+  checkModeratorPermission(MODERATION_PERMISSIONS.CONTRIBUTIONS),
+  validateObjectId("id"),
+  contributionController.restoreContribution,
+);
+
+/**
+ * @route   DELETE /api/contributions/trash/empty
+ * @desc    Xóa vĩnh viễn toàn bộ đóng góp trong thùng rác
+ * @access  Private - Moderator/Admin
+ */
+router.delete(
+  "/trash/empty",
+  authenticate,
+  checkModeratorPermission(MODERATION_PERMISSIONS.CONTRIBUTIONS),
+  contributionController.emptyContributionTrash,
+);
+
 module.exports = router;

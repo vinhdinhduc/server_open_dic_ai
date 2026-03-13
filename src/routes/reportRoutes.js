@@ -56,4 +56,28 @@ router.put(
   reportController.resolveReport,
 );
 
+// Xóa mềm báo xấu - Moderator/Admin
+router.delete(
+  "/:id",
+  authenticate,
+  checkModeratorPermission(MODERATION_PERMISSIONS.REPORTS),
+  reportController.deleteReport,
+);
+
+// Khôi phục báo xấu - Moderator/Admin
+router.put(
+  "/:id/restore",
+  authenticate,
+  checkModeratorPermission(MODERATION_PERMISSIONS.REPORTS),
+  reportController.restoreReport,
+);
+
+// Làm rỗng thùng rác báo xấu - Moderator/Admin
+router.delete(
+  "/trash/empty",
+  authenticate,
+  checkModeratorPermission(MODERATION_PERMISSIONS.REPORTS),
+  reportController.emptyReportTrash,
+);
+
 module.exports = router;

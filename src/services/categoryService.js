@@ -16,10 +16,17 @@ exports.getAllCategories = async (options = {}) => {
   //format categories based on language
   return categories.map((category) => ({
     id: category._id,
-    name: category.name?.[language] || category.name?.["vi"] || "",
+    name:
+      language === "all"
+        ? category.name || { vi: "", en: "", lo: "" }
+        : category.name?.[language] || category.name?.["vi"] || "",
     slug: category.slug,
     description:
-      category.description?.[language] || category.description?.["vi"] || "",
+      language === "all"
+        ? category.description || { vi: "", en: "", lo: "" }
+        : category.description?.[language] ||
+          category.description?.["vi"] ||
+          "",
     isActive: category.isActive,
     icon: category.icon,
     parentCategory: category.parentCategory,

@@ -13,9 +13,13 @@ exports.searchTerms = async (query, options = {}) => {
     category,
     language,
     sortBy = "relevance",
+    includeDeleted = false,
   } = options;
   const skip = (page - 1) * limit;
   const searchQuery = { status: TERM_STATUS.APPROVED };
+  if (!includeDeleted) {
+    searchQuery.isDeleted = { $ne: true };
+  }
   let sort = {};
 
   if (query && query.trim()) {
@@ -148,9 +152,17 @@ exports.getTerms = async (options = {}) => {
     sortBy = "newest",
     page = 1,
     limit = 10,
+    includeDeleted = false,
+    onlyDeleted = false,
   } = options;
   const skip = (page - 1) * limit;
   const query = {};
+
+  if (onlyDeleted) {
+    query.isDeleted = true;
+  } else if (!includeDeleted) {
+    query.isDeleted = { $ne: true };
+  }
 
   // Filter theo status - mặc định là approved nếu không có
   if (status && status !== "all") {
@@ -219,9 +231,17 @@ exports.getTermsForModerator = async (options = {}) => {
     sortBy = "newest",
     page = 1,
     limit = 10,
+    includeDeleted = false,
+    onlyDeleted = false,
   } = options;
   const skip = (page - 1) * limit;
   const query = {};
+
+  if (onlyDeleted) {
+    query.isDeleted = true;
+  } else if (!includeDeleted) {
+    query.isDeleted = { $ne: true };
+  }
 
   // Restrict to moderator's assigned categories
   if (categoryIds.length > 0) {
@@ -293,6 +313,11 @@ exports.getTermsForModerator = async (options = {}) => {
 exports.getTermStats = async () => {
   const stats = await Term.aggregate([
     {
+      $match: {
+        isDeleted: { $ne: true },
+      },
+    },
+    {
       $group: {
         _id: "$status",
         count: { $sum: 1 },
@@ -326,7 +351,7 @@ exports.getTermById = async (termId, userId = null) => {
     .populate("lastModifiedBy", "fullName email")
     .populate("relatedTerms", "term definition");
 
-  if (!term) {
+  if (!term || term.isDeleted) {
     const error = new Error("Không tìm thấy thuật ngữ");
     error.statusCode = 404;
     throw error;
@@ -366,6 +391,7 @@ exports.createTerm = async (termData, userId) => {
   const existingTerm = await Term.findOne({
     "term.vi": termData.term.vi,
     category: termData.category,
+    isDeleted: { $ne: true },
   });
 
   if (existingTerm) {
@@ -402,22 +428,52 @@ exports.updateTerm = async (termId, termData, userId) => {
 };
 //xoá thuật ngữ
 
-exports.deleteTerm = async (termId) => {
+exports.deleteTerm = async (termId, deletedBy = null) => {
   const term = await Term.findById(termId);
-  if (!term) {
+  if (!term || term.isDeleted) {
     const error = new Error("Không tìm thấy thuật ngữ");
     error.statusCode = 404;
     throw error;
   }
 
   //Giảm term count trong category
-  const category = await Category.findByIdAndUpdate(term.category, {
+  await Category.findByIdAndUpdate(term.category, {
     $inc: { termCount: -1 },
   });
-  await term.deleteOne();
+
+  term.isDeleted = true;
+  term.deletedAt = new Date();
+  term.deletedBy = deletedBy;
+  await term.save();
+
   return {
-    message: "Xoá thuật ngữ thành công",
+    message: "Đã chuyển thuật ngữ vào thùng rác",
   };
+};
+
+exports.restoreTerm = async (termId) => {
+  const term = await Term.findById(termId);
+  if (!term || !term.isDeleted) {
+    const error = new Error("Không tìm thấy thuật ngữ trong thùng rác");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  await Category.findByIdAndUpdate(term.category, {
+    $inc: { termCount: 1 },
+  });
+
+  term.isDeleted = false;
+  term.deletedAt = null;
+  term.deletedBy = null;
+  await term.save();
+
+  return term;
+};
+
+exports.emptyTermTrash = async () => {
+  const result = await Term.deleteMany({ isDeleted: true });
+  return { deletedCount: result.deletedCount || 0 };
 };
 
 //Lưu lịch sử tìm kiếm
@@ -500,6 +556,7 @@ exports.getSuggestions = async (query, language = "vi", limit = 10) => {
         { tags: containsRegex },
       ],
       status: TERM_STATUS.APPROVED,
+      isDeleted: { $ne: true },
     },
     {
       "term.vi": 1,

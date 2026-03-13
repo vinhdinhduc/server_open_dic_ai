@@ -235,4 +235,29 @@ router.delete(
   termController.deleteTerm,
 );
 
+/**
+ * @route   PUT /api/terms/:id/restore
+ * @desc    Khôi phục thuật ngữ từ thùng rác
+ * @access  Private - Moderator/Admin
+ */
+router.put(
+  "/:id/restore",
+  authenticate,
+  isModerator,
+  validateObjectId("id"),
+  termController.restoreTerm,
+);
+
+/**
+ * @route   DELETE /api/terms/trash/empty
+ * @desc    Xóa vĩnh viễn toàn bộ thuật ngữ trong thùng rác
+ * @access  Private - Moderator/Admin
+ */
+router.delete(
+  "/trash/empty",
+  authenticate,
+  isModerator,
+  termController.emptyTermTrash,
+);
+
 module.exports = router;

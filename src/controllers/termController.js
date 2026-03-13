@@ -106,8 +106,31 @@ exports.deleteTerm = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const result = await termService.deleteTerm(id);
+    const result = await termService.deleteTerm(id, req.user?._id || null);
     return successResponse(res, "Xoá thuật ngữ thành công ", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.restoreTerm = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const result = await termService.restoreTerm(id);
+    return successResponse(res, "Khôi phục thuật ngữ thành công", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.emptyTermTrash = async (req, res, next) => {
+  try {
+    const result = await termService.emptyTermTrash();
+    return successResponse(
+      res,
+      `Đã làm rỗng thùng rác (${result.deletedCount} mục)`,
+      result,
+    );
   } catch (error) {
     next(error);
   }
@@ -115,13 +138,16 @@ exports.deleteTerm = async (req, res, next) => {
 
 exports.getTerms = async (req, res, next) => {
   try {
-    const { category, status, sortBy, search } = req.query;
+    const { category, status, sortBy, search, includeDeleted, onlyDeleted } =
+      req.query;
     const { page, limit } = req.pagination;
     const result = await termService.getTerms({
       category,
       status,
       sortBy,
       search,
+      includeDeleted: includeDeleted === "true",
+      onlyDeleted: onlyDeleted === "true",
       page,
       limit,
     });
@@ -135,7 +161,8 @@ exports.getTerms = async (req, res, next) => {
 exports.getTermsForModerator = async (req, res, next) => {
   try {
     const user = req.user;
-    const { category, status, sortBy, search } = req.query;
+    const { category, status, sortBy, search, includeDeleted, onlyDeleted } =
+      req.query;
     const { page, limit } = req.pagination;
 
     // Admin sees all categories; moderator only sees assigned categories
@@ -152,6 +179,8 @@ exports.getTermsForModerator = async (req, res, next) => {
       status,
       sortBy,
       search,
+      includeDeleted: includeDeleted === "true",
+      onlyDeleted: onlyDeleted === "true",
       page,
       limit,
     });

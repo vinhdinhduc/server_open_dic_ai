@@ -26,11 +26,19 @@ exports.createReport = async (req, res, next) => {
  */
 exports.getReports = async (req, res, next) => {
   try {
-    const { status, type, category } = req.query;
+    const { status, type, category, includeDeleted, onlyDeleted } = req.query;
     const { page, limit } = req.pagination;
 
     const result = await reportService.getReports(
-      { page, limit, status, type, category },
+      {
+        page,
+        limit,
+        status,
+        type,
+        category,
+        includeDeleted: includeDeleted === "true",
+        onlyDeleted: onlyDeleted === "true",
+      },
       req.user,
     );
 
@@ -91,6 +99,42 @@ exports.getReportStats = async (req, res, next) => {
     const stats = await reportService.getReportStats(req.user);
 
     return successResponse(res, "Lấy thống kê báo xấu thành công", stats);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteReport = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const report = await reportService.softDeleteReport(
+      id,
+      req.user?._id || null,
+    );
+    return successResponse(res, "Đã chuyển báo xấu vào thùng rác", report);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.restoreReport = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const report = await reportService.restoreReport(id);
+    return successResponse(res, "Khôi phục báo xấu thành công", report);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.emptyReportTrash = async (req, res, next) => {
+  try {
+    const result = await reportService.emptyReportTrash();
+    return successResponse(
+      res,
+      `Đã làm rỗng thùng rác báo xấu (${result.deletedCount} mục)`,
+      result,
+    );
   } catch (error) {
     next(error);
   }

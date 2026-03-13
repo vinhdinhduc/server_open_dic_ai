@@ -69,6 +69,19 @@ const termSchema = new mongoose.Schema(
       enum: ["system_import", "user_contribution", "admin_created"],
       default: "admin_created",
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   {
     timestamps: true,

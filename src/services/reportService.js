@@ -90,10 +90,24 @@ exports.createReport = async (reportData, reporterId) => {
  * Moderator chỉ thấy báo xấu trong danh mục được gán
  */
 exports.getReports = async (options = {}, user) => {
-  const { page = 1, limit = 20, status, type, category } = options;
+  const {
+    page = 1,
+    limit = 20,
+    status,
+    type,
+    category,
+    includeDeleted = false,
+    onlyDeleted = false,
+  } = options;
   const skip = (page - 1) * limit;
 
   const query = {};
+
+  if (onlyDeleted) {
+    query.isDeleted = true;
+  } else if (!includeDeleted) {
+    query.isDeleted = { $ne: true };
+  }
 
   // Nếu là moderator, chỉ lấy reports trong danh mục được phép
   if (user.role === USER_ROLES.MODERATOR) {
@@ -150,7 +164,7 @@ exports.getReportById = async (reportId, user) => {
     .populate("category", "name")
     .populate("moderator", "fullName");
 
-  if (!report) {
+  if (!report || report.isDeleted) {
     const error = new Error("Không tìm thấy báo xấu");
     error.statusCode = 404;
     throw error;
@@ -184,7 +198,7 @@ exports.resolveReport = async (
   const { status, moderatorNote, actionTaken } = resolveData;
 
   const report = await Report.findById(reportId);
-  if (!report) {
+  if (!report || report.isDeleted) {
     const error = new Error("Không tìm thấy báo xấu");
     error.statusCode = 404;
     throw error;
@@ -271,6 +285,8 @@ exports.resolveReport = async (
 exports.getReportStats = async (user) => {
   const matchQuery = {};
 
+  matchQuery.isDeleted = { $ne: true };
+
   // Moderator chỉ thấy stats trong danh mục được phép
   if (user.role === USER_ROLES.MODERATOR) {
     const allowedCategories = user.moderationPermissions?.categories || [];
@@ -300,4 +316,41 @@ exports.getReportStats = async (user) => {
   });
 
   return result;
+};
+
+exports.softDeleteReport = async (reportId, deletedBy = null) => {
+  const report = await Report.findById(reportId);
+  if (!report || report.isDeleted) {
+    const error = new Error("Không tìm thấy báo xấu");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  report.isDeleted = true;
+  report.deletedAt = new Date();
+  report.deletedBy = deletedBy;
+  await report.save();
+
+  return report;
+};
+
+exports.restoreReport = async (reportId) => {
+  const report = await Report.findById(reportId);
+  if (!report || !report.isDeleted) {
+    const error = new Error("Không tìm thấy báo xấu trong thùng rác");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  report.isDeleted = false;
+  report.deletedAt = null;
+  report.deletedBy = null;
+  await report.save();
+
+  return report;
+};
+
+exports.emptyReportTrash = async () => {
+  const result = await Report.deleteMany({ isDeleted: true });
+  return { deletedCount: result.deletedCount || 0 };
 };

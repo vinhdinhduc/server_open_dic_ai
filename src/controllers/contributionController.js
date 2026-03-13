@@ -27,12 +27,19 @@ exports.createContribution = async (req, res, next) => {
 // Lấy danh sách đóng góp (của mình hoặc tất cả tùy role)
 exports.getMyContribution = async (req, res, next) => {
   try {
-    const { status, category } = req.query;
+    const { status, category, includeDeleted, onlyDeleted } = req.query;
     const { page, limit } = req.pagination;
     const userRole = req.user.role;
     const userId = req.user._id;
 
-    const options = { status, category, page, limit };
+    const options = {
+      status,
+      category,
+      page,
+      limit,
+      includeDeleted: includeDeleted === "true",
+      onlyDeleted: onlyDeleted === "true",
+    };
     if (userRole === "user") {
       options.userId = userId;
     }
@@ -119,9 +126,35 @@ exports.deleteContribution = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const result = await contributionService.deleteContribution(id);
+    const result = await contributionService.deleteContribution(
+      id,
+      req.user?._id || null,
+    );
 
     return successResponse(res, result.message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.restoreContribution = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const result = await contributionService.restoreContribution(id);
+    return successResponse(res, "Khôi phục đóng góp thành công", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.emptyContributionTrash = async (req, res, next) => {
+  try {
+    const result = await contributionService.emptyContributionTrash();
+    return successResponse(
+      res,
+      `Đã làm rỗng thùng rác đóng góp (${result.deletedCount} mục)`,
+      result,
+    );
   } catch (error) {
     next(error);
   }

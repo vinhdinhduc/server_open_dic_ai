@@ -70,6 +70,19 @@ const reportSchema = new mongoose.Schema(
     },
     // Thời gian xử lý
     resolvedAt: Date,
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   {
     timestamps: true,
