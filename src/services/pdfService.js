@@ -7,34 +7,41 @@ const pickFirstExisting = (candidates = [], fallback) => {
   return found || fallback;
 };
 
+const regularFont = pickFirstExisting(
+  [
+    "C:\\Windows\\Fonts\\arial.ttf",
+    "C:\\Windows\\Fonts\\segoeui.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+  ],
+  "Helvetica",
+);
+
+const boldFont = pickFirstExisting(
+  [
+    "C:\\Windows\\Fonts\\arialbd.ttf",
+    "C:\\Windows\\Fonts\\segoeuib.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+  ],
+  regularFont === "Helvetica" ? "Helvetica-Bold" : regularFont,
+);
+
+const italicFont = pickFirstExisting(
+  [
+    "C:\\Windows\\Fonts\\ariali.ttf",
+    "C:\\Windows\\Fonts\\segoeuii.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Italic.ttf",
+  ],
+  regularFont,
+);
+
 const FONTS = {
-  regular: pickFirstExisting(
-    [
-      "C:\\Windows\\Fonts\\arial.ttf",
-      "C:\\Windows\\Fonts\\segoeui.ttf",
-      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-      "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-    ],
-    "Helvetica",
-  ),
-  bold: pickFirstExisting(
-    [
-      "C:\\Windows\\Fonts\\arialbd.ttf",
-      "C:\\Windows\\Fonts\\segoeuib.ttf",
-      "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-      "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-    ],
-    "Helvetica-Bold",
-  ),
-  italic: pickFirstExisting(
-    [
-      "C:\\Windows\\Fonts\\ariali.ttf",
-      "C:\\Windows\\Fonts\\segoeuii.ttf",
-      "/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf",
-      "/usr/share/fonts/truetype/liberation/LiberationSans-Italic.ttf",
-    ],
-    "Helvetica-Oblique",
-  ),
+  regular: regularFont,
+  bold: boldFont,
+  // Do not fallback to Helvetica-Oblique in production because it often breaks Vietnamese diacritics.
+  italic: italicFont,
   serif: pickFirstExisting(
     [
       "C:\\Windows\\Fonts\\timesbi.ttf",

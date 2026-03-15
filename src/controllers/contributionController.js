@@ -6,13 +6,11 @@ exports.createContribution = async (req, res, next) => {
   try {
     const contributionData = req.body;
     const userId = req.user._id;
-    console.log("Check contribution Data", contributionData);
 
     const newContribution = await contributionService.createContribution(
       userId,
       contributionData,
     );
-    console.log("Check new contribution", newContribution);
     return successResponse(
       res,
       "Đóng góp của bạn đã được gửi và đang chờ kiểm duyệt",
@@ -27,7 +25,7 @@ exports.createContribution = async (req, res, next) => {
 // Lấy danh sách đóng góp (của mình hoặc tất cả tùy role)
 exports.getMyContribution = async (req, res, next) => {
   try {
-    const { status, category, includeDeleted, onlyDeleted } = req.query;
+    const { status, category, includeDeleted, onlyDeleted, mine } = req.query;
     const { page, limit } = req.pagination;
     const userRole = req.user.role;
     const userId = req.user._id;
@@ -39,8 +37,9 @@ exports.getMyContribution = async (req, res, next) => {
       limit,
       includeDeleted: includeDeleted === "true",
       onlyDeleted: onlyDeleted === "true",
+      mine: mine === "true",
     };
-    if (userRole === "user") {
+    if (userRole === "user" || mine === "true") {
       options.userId = userId;
     }
 
@@ -50,6 +49,34 @@ exports.getMyContribution = async (req, res, next) => {
       req.user,
     );
     return successResponse(res, "Lấy danh sách đóng góp thành công", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Lấy danh sách đóng góp của chính user cho trang profile
+exports.getProfileContributions = async (req, res, next) => {
+  try {
+    const { status, category, includeDeleted, onlyDeleted } = req.query;
+    const { page, limit } = req.pagination;
+
+    const result = await contributionService.getContributionByUserId(
+      req.user._id,
+      {
+        status,
+        category,
+        page,
+        limit,
+        includeDeleted: includeDeleted === "true",
+        onlyDeleted: onlyDeleted === "true",
+      },
+    );
+
+    return successResponse(
+      res,
+      "Lấy danh sách đóng góp cá nhân thành công",
+      result,
+    );
   } catch (error) {
     next(error);
   }

@@ -66,6 +66,18 @@ router.get(
 );
 
 /**
+ * @route   GET /api/contributions/me
+ * @desc    Lấy danh sách đóng góp của chính người dùng
+ * @access  Private
+ */
+router.get(
+  "/me",
+  authenticate,
+  validatePagination,
+  contributionController.getProfileContributions,
+);
+
+/**
  * @route   GET /api/contributions/:id
  * @desc    Lấy chi tiết đóng góp
  * @access  Private

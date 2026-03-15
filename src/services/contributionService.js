@@ -80,7 +80,7 @@ exports.getContribution = async (filter = {}, options = {}, user = null) => {
   }
 
   // Nếu là moderator, chỉ lấy contributions trong danh mục được phép
-  if (user && user.role === USER_ROLES.MODERATOR) {
+  if (user && user.role === USER_ROLES.MODERATOR && !options.userId) {
     const allowedCategories = user.moderationPermissions?.categories || [];
     if (allowedCategories.length === 0) {
       return {
@@ -121,7 +121,54 @@ exports.getContribution = async (filter = {}, options = {}, user = null) => {
     },
   };
 };
+exports.getContributionByUserId = async (userId, options = {}) => {
+  const {
+    page = 1,
+    limit = 20,
+    status,
+    category,
+    includeDeleted = false,
+    onlyDeleted = false,
+  } = options;
+  const skip = (page - 1) * limit;
+  const query = {
+    contributor: userId,
+  };
 
+  if (onlyDeleted) {
+    query.isDeleted = true;
+  } else if (!includeDeleted) {
+    query.isDeleted = { $ne: true };
+  }
+
+  if (status) query.status = status;
+  if (category) query.category = category;
+
+  const [contributions, total] = await Promise.all([
+    Contribution.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("contributor", "fullName email")
+      .populate("category", "name")
+      .populate("moderator", "fullName")
+      .populate(
+        "targetTerm",
+        "term definition detailedExplanation examples partOfSpeech tags slug",
+      ),
+    Contribution.countDocuments(query),
+  ]);
+
+  return {
+    contributions,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+    },
+  };
+};
 //Lấy chi tiết đóng góp
 
 exports.getContributionById = async (contributionId) => {

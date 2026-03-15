@@ -1,9 +1,39 @@
 const aiService = require("../services/aiService");
+const reputationService = require("../services/reputationService");
+const { REPUTATION } = require("../utils/constants");
 const { successResponse, errorResponse } = require("../utils/response");
 
 /**
  * Controller xử lý các yêu cầu AI
  */
+
+const ensureExplanationAIAccess = async (userId) => {
+  const access = await reputationService.checkAIAccess(userId, "explanation");
+  if (access.allowed) {
+    return null;
+  }
+
+  const requiredLevel = Object.values(REPUTATION.LEVELS).find((level) =>
+    level.features.includes("explanation"),
+  );
+
+  if (!requiredLevel) {
+    return "Bạn chưa đủ điểm uy tín để sử dụng tính năng AI này";
+  }
+
+  return `Bạn chưa đủ điểm uy tín để dùng AI giải thích thêm về thuật ngữ. Cần tối thiểu ${requiredLevel.min} điểm uy tín (${requiredLevel.name}).`;
+};
+
+const ensureSpecificTermExplanationAccess = async (userId) => {
+  const access = await reputationService.checkAIAccess(userId, "explanation");
+  const requiredLevel = REPUTATION.LEVELS[2];
+
+  if (access.allowed && access.level >= 2) {
+    return null;
+  }
+
+  return `Bạn chưa đủ điểm uy tín để dùng AI giải thích thêm về thuật ngữ đã có sẵn. Cần tối thiểu ${requiredLevel.min} điểm uy tín (${requiredLevel.name}).`;
+};
 
 /**
  * Hỏi AI về thuật ngữ
@@ -62,6 +92,11 @@ const askAboutTerm = async (req, res) => {
     const validLanguages = ["vi", "en", "lo"];
     if (!validLanguages.includes(language)) {
       return errorResponse(res, "Ngôn ngữ không hợp lệ", 400);
+    }
+
+    const accessError = await ensureSpecificTermExplanationAccess(userId);
+    if (accessError) {
+      return errorResponse(res, accessError, 403);
     }
 
     // Gọi AI service
@@ -226,6 +261,11 @@ const askAboutSpecificTerm = async (req, res) => {
 
     if (!termId) {
       return errorResponse(res, "termId là bắt buộc", 400);
+    }
+
+    const accessError = await ensureExplanationAIAccess(userId);
+    if (accessError) {
+      return errorResponse(res, accessError, 403);
     }
 
     const Term = require("../models/Term");
