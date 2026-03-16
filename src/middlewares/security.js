@@ -102,26 +102,96 @@ const noSqlInjectionProtection = (req, res, next) => {
 };
 
 /**
+ * Whitelist các HTML tags an toàn được sinh ra bởi Quill RichTextEditor.
+ * Chỉ cho phép các tags định dạng nội bộ, không có event handlers.
+ */
+const RICH_TEXT_XSS_WHITELIST = {
+  p: [],
+  br: [],
+  strong: [],
+  b: [],
+  em: [],
+  i: [],
+  u: [],
+  s: [],
+  ul: ["class"],
+  ol: ["class"],
+  li: ["class", "data-list"],
+  blockquote: [],
+  pre: ["class"],
+  code: ["class"],
+  span: ["class"],
+  h1: [],
+  h2: [],
+  h3: [],
+  h4: [],
+};
+
+/**
+ * Các field chứa rich-text HTML (Quill editor) – cần whitelist an toàn.
+ * Tất cả fields khác bị strip hoàn toàn.
+ */
+const RICH_TEXT_FIELDS = new Set([
+  "definition",
+  "detailedExplanation",
+  "vi",
+  "en",
+  "lo",
+]);
+
+/**
  * Middleware chống XSS (Cross-Site Scripting)
- * Sanitize user input từ request body, query params, và url params
+ * - Rich-text fields (definition, detailedExplanation và các subkey ngôn ngữ)
+ *   được ghép với whitelist tags an toàn của Quill.
+ * - Tất cả các fields khác bị strip sạch HTML.
  */
 const xssProtection = (req, res, next) => {
-  const sanitizeValue = (value) => {
-    if (typeof value === "string") {
-      // Sử dụng thư viện xss để sanitize
+  /**
+   * Sanitize một giá trị string theo chế độ được chỉ định.
+   * @param {string} value - chuỗi cần xử lý
+   * @param {boolean} isRichText - nếu true dùng whitelist Quill, nếu false strip toàn bộ
+   */
+  const sanitizeString = (value, isRichText = false) => {
+    if (isRichText) {
       return xss(value, {
-        whiteList: {}, // Không cho phép bất kỳ HTML tags nào
+        whiteList: RICH_TEXT_XSS_WHITELIST,
         stripIgnoreTag: true,
         stripIgnoreTagBody: ["script", "style"],
+        onTagAttr: (tag, name, value) => {
+          // Chặn mọi event handler attribute (onclick, onload, …)
+          if (/^on\w+/i.test(name)) return "";
+          // Chặn javascript: trong href/src
+          if ((name === "href" || name === "src") && /javascript:/i.test(value))
+            return "";
+          return undefined; // cho phép attribute bình thường
+        },
       });
     }
+    return xss(value, {
+      whiteList: {},
+      stripIgnoreTag: true,
+      stripIgnoreTagBody: ["script", "style"],
+    });
+  };
+
+  /**
+   * Duyệt đệ quy object/array, nhận diện context để chọn chế độ sanitize.
+   * @param {*} value - giá trị cần sanitize
+   * @param {string|null} parentKey - tên key cha (để nhận diện rich-text field)
+   */
+  const sanitizeValue = (value, parentKey = null) => {
+    if (typeof value === "string") {
+      const isRichText = parentKey !== null && RICH_TEXT_FIELDS.has(parentKey);
+      return sanitizeString(value, isRichText);
+    }
     if (Array.isArray(value)) {
-      return value.map((item) => sanitizeValue(item));
+      // Mảng ví dụ (examples) – các phần tử là object {vi, en, lo}
+      return value.map((item) => sanitizeValue(item, parentKey));
     }
     if (typeof value === "object" && value !== null) {
       const clean = {};
       for (const key in value) {
-        clean[key] = sanitizeValue(value[key]);
+        clean[key] = sanitizeValue(value[key], key);
       }
       return clean;
     }

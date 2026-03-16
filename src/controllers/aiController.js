@@ -24,7 +24,12 @@ const ensureExplanationAIAccess = async (userId) => {
   return `Bạn chưa đủ điểm uy tín để dùng AI giải thích thêm về thuật ngữ. Cần tối thiểu ${requiredLevel.min} điểm uy tín (${requiredLevel.name}).`;
 };
 
-const ensureSpecificTermExplanationAccess = async (userId) => {
+const ensureSpecificTermExplanationAccess = async (userId, userRole) => {
+  // Admin và moderator luôn có quyền truy cập AI không giới hạn
+  if (userRole === "admin" || userRole === "moderator") {
+    return null;
+  }
+
   const access = await reputationService.checkAIAccess(userId, "explanation");
   const requiredLevel = REPUTATION.LEVELS[2];
 
@@ -92,11 +97,6 @@ const askAboutTerm = async (req, res) => {
     const validLanguages = ["vi", "en", "lo"];
     if (!validLanguages.includes(language)) {
       return errorResponse(res, "Ngôn ngữ không hợp lệ", 400);
-    }
-
-    const accessError = await ensureSpecificTermExplanationAccess(userId);
-    if (accessError) {
-      return errorResponse(res, accessError, 403);
     }
 
     // Gọi AI service
