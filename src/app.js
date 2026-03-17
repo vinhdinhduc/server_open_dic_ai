@@ -36,6 +36,7 @@ const systemConfigRoutes = require("./routes/systemConfigRoutes");
 const reportStatsRoutes = require("./routes/reportStatsRoutes");
 const feedbackRoutes = require("./routes/feedbackRoutes");
 const reputationRoutes = require("./routes/reputationRoutes");
+const leaderboardRoutes = require("./routes/leaderboardRoutes");
 
 const app = express();
 
@@ -129,6 +130,7 @@ app.use("/api/system-config", systemConfigRoutes);
 app.use("/api/report-stats", reportStatsRoutes);
 app.use("/api/contact", feedbackRoutes);
 app.use("/api/reputation", reputationRoutes);
+app.use("/api/leaderboard", leaderboardRoutes);
 
 // Health check (không rate limit)
 app.get("/health", (req, res) => {

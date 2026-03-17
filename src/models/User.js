@@ -91,6 +91,11 @@ const userSchema = new mongoose.Schema(
       enum: ["local", "google"],
       default: "local",
     },
+    // Public profile view counter
+    profileViewCount: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true },
 );

@@ -12,6 +12,42 @@ const {
   USER_ROLES,
   NOTIFICATION_TYPES,
 } = require("../utils/constants");
+
+const buildApprovedContributionData = (contribution, overrideData = {}) => {
+  const cloneMultiLang = (value) => ({
+    vi: value?.vi || "",
+    en: value?.en || "",
+    lo: value?.lo || "",
+  });
+
+  const approvedData = {
+    term: cloneMultiLang(overrideData.term || contribution.term),
+    definition: cloneMultiLang(
+      overrideData.definition || contribution.definition,
+    ),
+    detailedExplanation: cloneMultiLang(
+      overrideData.detailedExplanation || contribution.detailedExplanation,
+    ),
+    examples: Array.isArray(overrideData.examples)
+      ? overrideData.examples.map((example) => cloneMultiLang(example))
+      : Array.isArray(contribution.examples)
+        ? contribution.examples.map((example) => cloneMultiLang(example))
+        : [],
+    partOfSpeech:
+      overrideData.partOfSpeech !== undefined
+        ? overrideData.partOfSpeech
+        : contribution.partOfSpeech,
+    tags: Array.isArray(overrideData.tags)
+      ? overrideData.tags
+      : contribution.tags || [],
+    contributorNote:
+      overrideData.contributorNote !== undefined
+        ? overrideData.contributorNote
+        : contribution.contributorNote,
+  };
+
+  return normalizeContributionData(approvedData);
+};
 //Tạo đóng góp thuật ngữ mới
 exports.createContribution = async (userId, contributionData) => {
   const newContribution = await Contribution.create({
@@ -191,6 +227,7 @@ exports.approveContribution = async (
   contributionId,
   moderatorId,
   moderatorNote = "",
+  overrideData = {},
   user = null,
 ) => {
   const contribution = await Contribution.findById(contributionId);
@@ -221,15 +258,20 @@ exports.approveContribution = async (
     throw error;
   }
 
+  const approvedData = buildApprovedContributionData(
+    contribution,
+    overrideData,
+  );
+
   let term;
   if (contribution.type === "new_term") {
     term = await Term.create({
-      term: contribution.term,
-      definition: contribution.definition,
-      detailedExplanation: contribution.detailedExplanation,
-      examples: contribution.examples,
-      partOfSpeech: contribution.partOfSpeech,
-      tags: contribution.tags,
+      term: approvedData.term,
+      definition: approvedData.definition,
+      detailedExplanation: approvedData.detailedExplanation,
+      examples: approvedData.examples,
+      partOfSpeech: approvedData.partOfSpeech,
+      tags: approvedData.tags,
       category: contribution.category,
       createdBy: contribution.contributor,
       status: TERM_STATUS.APPROVED,
@@ -243,19 +285,26 @@ exports.approveContribution = async (
     term = await Term.findByIdAndUpdate(
       contribution.targetTerm,
       {
-        term: contribution.term,
-        definition: contribution.definition,
-        detailedExplanation: contribution.detailedExplanation,
-        examples: contribution.examples,
-        partOfSpeech: contribution.partOfSpeech,
-        tags: contribution.tags,
-        lastModifiedBy: contribution.contributor,
+        term: approvedData.term,
+        definition: approvedData.definition,
+        detailedExplanation: approvedData.detailedExplanation,
+        examples: approvedData.examples,
+        partOfSpeech: approvedData.partOfSpeech,
+        tags: approvedData.tags,
+        lastModifiedBy: moderatorId,
       },
       { new: true },
     );
   }
 
   //Cập nhật contribution
+  contribution.term = approvedData.term;
+  contribution.definition = approvedData.definition;
+  contribution.detailedExplanation = approvedData.detailedExplanation;
+  contribution.examples = approvedData.examples;
+  contribution.partOfSpeech = approvedData.partOfSpeech;
+  contribution.tags = approvedData.tags;
+  contribution.contributorNote = approvedData.contributorNote;
   contribution.status = CONTRIBUTION_STATUS.APPROVED;
   contribution.moderator = moderatorId;
   contribution.moderatorNote = moderatorNote;

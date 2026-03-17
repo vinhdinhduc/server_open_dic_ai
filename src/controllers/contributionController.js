@@ -111,12 +111,13 @@ exports.getContributionById = async (req, res, next) => {
 exports.approveContribution = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { moderatorNote } = req.body;
+    const { moderatorNote, overrideData } = req.body;
     const moderatorId = req.user._id;
     const result = await contributionService.approveContribution(
       id,
       moderatorId,
       moderatorNote,
+      overrideData,
       req.user, // Truyền user để kiểm tra quyền category
     );
     return successResponse(res, "Phê duyệt đóng góp thành công", result);
