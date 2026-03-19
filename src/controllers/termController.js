@@ -54,7 +54,7 @@ exports.getTermById = async (req, res, next) => {
 exports.incrementTermView = async (req, res, next) => {
   try {
     const { id } = req.params;
-    await termService.incrementTermView(id);
+    await termService.incrementTermView(id, req.user?._id || null);
     return successResponse(res, "Cập nhật lượt xem thành công", {});
   } catch (error) {
     next(error);

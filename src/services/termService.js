@@ -361,17 +361,32 @@ exports.getTermById = async (termId, userId = null) => {
 };
 
 // Tăng lượt xem thuật ngữ (gọi riêng để tránh double-count)
-exports.incrementTermView = async (termId) => {
+exports.incrementTermView = async (termId, userId = null) => {
   const term = await Term.findByIdAndUpdate(
     termId,
     { $inc: { viewCount: 1 } },
-    { new: false },
-  );
+    { new: true },
+  ).select("term");
+
   if (!term) {
     const error = new Error("Không tìm thấy thuật ngữ");
     error.statusCode = 404;
     throw error;
   }
+
+  if (userId) {
+    const query = term.term?.vi || term.term?.en || term.term?.lo;
+
+    if (query) {
+      try {
+        await exports.saveSearchHistory(userId, query, 1);
+      } catch (error) {
+        // View count should still succeed even if history write fails.
+        console.error("Error saving search history from term view:", error);
+      }
+    }
+  }
+
   return true;
 };
 

@@ -70,7 +70,7 @@ const buildEmailHtml = (title, accentColor, bodyHtml) => `
           <tr>
             <td style="background:${accentColor};padding:28px 40px;text-align:center;">
               <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">
-                 OpenDict
+                 UTB OpenDict
               </h1>
             </td>
           </tr>
@@ -89,11 +89,11 @@ const buildEmailHtml = (title, accentColor, bodyHtml) => `
           <tr>
             <td style="background:#f8fafc;padding:20px 40px;border-top:1px solid #e2e8f0;text-align:center;">
               <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.6;">
-                Email này được gửi tự động từ hệ thống <strong>OpenDict</strong>.<br/>
+                Email này được gửi tự động từ hệ thống <strong>UTB OpenDict</strong>.<br/>
                 Vui lòng không trả lời email này.
               </p>
               <p style="margin:8px 0 0;color:#94a3b8;font-size:11px;">
-                © ${new Date().getFullYear()} OpenDict — Nền tảng từ điển mở cho cộng đồng
+                © ${new Date().getFullYear()} UTB OpenDict — Nền tảng từ điển mở cho cộng đồng
               </p>
             </td>
           </tr>
@@ -171,7 +171,7 @@ exports.sendVerificationEmail = async (
     const body = `
       ${greeting(userName)}
       <p style="color:#475569;font-size:15px;line-height:1.7;margin:0 0 16px;">
-        Cảm ơn bạn đã đăng ký tài khoản tại <strong>OpenDict</strong>.
+        Cảm ơn bạn đã đăng ký tài khoản tại <strong> UTB OpenDict</strong>.
         Nhấn nút bên dưới để xác thực địa chỉ email và kích hoạt tài khoản.
       </p>
       ${ctaButton(url, " Xác thực email", "#16a34a")}
@@ -229,7 +229,7 @@ exports.sendWelcomeEmail = async (userEmail, userName) => {
     await transporter.sendMail({
       from,
       to: userEmail,
-      subject: "Chào mừng đến với OpenDict!",
+      subject: "Chào mừng đến với  UTB OpenDict!",
       html: buildEmailHtml("Chào mừng bạn!", "#2563eb", body),
     });
     console.log(`[Email] Welcome sent  ${userEmail}`);

@@ -183,6 +183,7 @@ router.get(
 router.post(
   "/:id/view",
   validateObjectId("id"),
+  optionalAuth,
   termController.incrementTermView,
 );
 
