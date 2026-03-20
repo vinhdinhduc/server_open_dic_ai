@@ -269,6 +269,10 @@ const termValidators = {
       .trim()
       .notEmpty()
       .withMessage("Định nghĩa tiếng Việt không được để trống"),
+    body("status")
+      .optional()
+      .isIn(["pending", "approved", "rejected"])
+      .withMessage("Trạng thái không hợp lệ"),
   ],
 };
 

@@ -86,6 +86,13 @@ exports.updateTerm = async (req, res, next) => {
     const { id } = req.params;
     const termData = req.body;
 
+    if (termData.status === "approve") {
+      termData.status = "approved";
+    }
+    if (termData.status === "reject") {
+      termData.status = "rejected";
+    }
+
     // Convert tags object to array if needed
     if (
       termData.tags &&
