@@ -1,5 +1,5 @@
 module.exports = {
-  APP_NAME: "OpenDict",
+  APP_NAME: "UTB OpenDict",
 
   TOKEN_EXPIRY: {
     EMAIL_VERIFICATION_MS: 24 * 60 * 60 * 1000, // 24 giờ

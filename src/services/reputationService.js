@@ -648,7 +648,7 @@ exports.reviewRedemption = async (requestId, adminId, { status, note }) => {
 
   if (status === "approved") {
     // Tạo mã chứng nhận
-    request.certificateNumber = `OPENDICT-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+    request.certificateNumber = `UTB OPENDICT-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 
     // Trừ điểm
     await exports.addPoints(request.user, {
