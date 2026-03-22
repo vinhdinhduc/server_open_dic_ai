@@ -139,7 +139,7 @@ const greeting = (name) =>
 /** Standard sign-off. */
 const signOff = () =>
   `<p style="color:#334155;font-size:14px;margin:28px 0 0;line-height:1.6;">
-    Trân trọng,<br/><strong>Đội ngũ OpenDict</strong>
+    Trân trọng,<br/><strong>Đội ngũ UTB OpenDict</strong>
   </p>`;
 
 const isEmailNotificationEnabled = async (userEmail, type) => {
