@@ -7,6 +7,45 @@ const { successResponse, errorResponse } = require("../utils/response");
 const { REPUTATION } = require("../utils/constants");
 
 /**
+ * Chat với AI Agent (natural response + context-aware + scope guard)
+ * POST /api/ai/agent/chat
+ */
+const chatWithAgent = async (req, res) => {
+  try {
+    const { query, language = "vi", context = {} } = req.body;
+    const userId = req.user?.id;
+
+    if (!query || String(query).trim().length === 0) {
+      return errorResponse(res, "Query is required", 400);
+    }
+
+    const result = await aiService.askAgentChat({
+      query: String(query).trim(),
+      language,
+      context,
+      userId,
+    });
+
+    if (!result.success) {
+      return errorResponse(
+        res,
+        result.message || "Failed to process request",
+        400,
+      );
+    }
+
+    return successResponse(
+      res,
+      "Agent response generated successfully",
+      result.data,
+    );
+  } catch (error) {
+    console.error("AI Agent Chat Controller Error:", error);
+    return errorResponse(res, "Error processing AI agent chat", 500);
+  }
+};
+
+/**
  * Lấy đề xuất hành động tiếp theo dựa trên context
  * POST /api/ai/agent/suggestions
  */
@@ -16,7 +55,7 @@ const getSuggestions = async (req, res) => {
     const userId = req.user?.id;
 
     if (!context) {
-      return errorResponse(res, 400, "Context is required");
+      return errorResponse(res, "Context is required", 400);
     }
 
     const suggestions = [];
@@ -31,12 +70,13 @@ const getSuggestions = async (req, res) => {
 
     // Nếu đang ở trang tìm kiếm mà không có kết quả
     if (currentPage === "search" && searchQuery) {
-      const results = await termService.searchTerms(searchQuery, {
+      const searchResult = await termService.searchTerms(searchQuery, {
         limit: 1,
         language,
       });
+      const terms = searchResult?.terms || [];
 
-      if (results.length === 0) {
+      if (terms.length === 0) {
         // Đề xuất: Hỏi AI về từ không có
         suggestions.push({
           id: `suggest-ask-ai-${Date.now()}`,
@@ -76,7 +116,9 @@ const getSuggestions = async (req, res) => {
           icon: "Lightbulb",
           action: {
             type: "explore_category",
-            params: { categoryId: results[0]?.category },
+            params: {
+              categoryId: terms[0]?.category?._id || terms[0]?.category,
+            },
           },
           priority: 1,
         });
@@ -266,21 +308,19 @@ const getRelatedTerms = async (req, res) => {
     // Tìm các thuật ngữ liên quan
     let relatedTerms = [];
     if (term.relatedTerms && term.relatedTerms.length > 0) {
-      relatedTerms = await Promise.all(
-        term.relatedTerms.map(async (id) => {
-          return await termService.getById(id);
-        }),
-      );
+      relatedTerms = term.relatedTerms.filter(Boolean);
     }
 
     // Nếu không có relatedTerms, tìm thuật ngữ trong cùng danh mục
     if (relatedTerms.length === 0 && term.category) {
-      const categoryTerms = await termService.searchTerms("", {
+      const categoryTermsResult = await termService.searchTerms("", {
         category: term.category,
         limit: 5,
         language,
       });
-      relatedTerms = categoryTerms.filter((t) => t._id.toString() !== termId);
+      relatedTerms = (categoryTermsResult?.terms || []).filter(
+        (t) => t && String(t._id) !== String(termId),
+      );
     }
 
     return successResponse(res, "Related terms retrieved successfully", {
@@ -458,9 +498,16 @@ const getContributionRecommendation = async (req, res) => {
     }
 
     // Kiểm tra xem thuật ngữ đã tồn tại hay chưa
-    const existingTerm = await termService.search(term, {
-      exact: true,
+    const searchResult = await termService.searchTerms(term, {
+      limit: 5,
       language,
+      sortBy: "relevance",
+    });
+    const existingTerm = (searchResult?.terms || []).filter((item) => {
+      const values = [item?.term?.vi, item?.term?.en, item?.term?.lo]
+        .filter(Boolean)
+        .map((value) => String(value).trim().toLowerCase());
+      return values.includes(String(term).trim().toLowerCase());
     });
 
     let recommendation = {
@@ -499,7 +546,127 @@ const getContributionRecommendation = async (req, res) => {
   }
 };
 
+/**
+ * Identify and classify terms in user input
+ * POST /api/ai/agent/identify-terms
+ */
+const identifyTerms = async (req, res) => {
+  try {
+    const { query, language = "vi", context = {} } = req.body;
+    const userId = req.user?.id;
+
+    if (!query || String(query).trim().length === 0) {
+      return errorResponse(res, "Query is required", 400);
+    }
+
+    const result = await aiService.identifyAndClassifyTerms({
+      query: String(query).trim(),
+      language,
+      context,
+    });
+
+    if (!result.success) {
+      return errorResponse(
+        res,
+        result.message || "Failed to identify terms",
+        400,
+      );
+    }
+
+    return successResponse(
+      res,
+      "Terms identified and classified successfully",
+      {
+        terms: result.terms,
+        count: result.terms?.length || 0,
+      },
+    );
+  } catch (error) {
+    console.error("Identify Terms Controller Error:", error);
+    return errorResponse(res, "Error identifying terms", 500);
+  }
+};
+
+/**
+ * Translate a term name across languages
+ * POST /api/ai/agent/translate-term
+ */
+const translateTerm = async (req, res) => {
+  try {
+    const {
+      termName,
+      sourceLanguage = "en",
+      targetLanguages,
+      domain,
+    } = req.body;
+    const userId = req.user?.id;
+
+    if (!termName || String(termName).trim().length === 0) {
+      return errorResponse(res, "Term name is required", 400);
+    }
+
+    const result = await aiService.translateTermName({
+      termName: String(termName).trim(),
+      sourceLanguage,
+      targetLanguages: targetLanguages || ["vi", "en", "lo"],
+      domain: domain || "General",
+    });
+
+    if (!result.success) {
+      return errorResponse(
+        res,
+        result.message || "Failed to translate term",
+        400,
+      );
+    }
+
+    return successResponse(res, "Term translated successfully", result.data);
+  } catch (error) {
+    console.error("Translate Term Controller Error:", error);
+    return errorResponse(res, "Error translating term", 500);
+  }
+};
+
+/**
+ * Get term taxonomy and classification
+ * POST /api/ai/agent/term-taxonomy
+ */
+const getTermTaxonomy = async (req, res) => {
+  try {
+    const { termName, language = "vi", context = {} } = req.body;
+    const userId = req.user?.id;
+
+    if (!termName || String(termName).trim().length === 0) {
+      return errorResponse(res, "Term name is required", 400);
+    }
+
+    const result = await aiService.getTermTaxonomy({
+      termName: String(termName).trim(),
+      language,
+      context,
+    });
+
+    if (!result.success) {
+      return errorResponse(
+        res,
+        result.message || "Failed to get taxonomy",
+        400,
+      );
+    }
+
+    return successResponse(
+      res,
+      "Term taxonomy retrieved successfully",
+      result.data,
+    );
+  } catch (error) {
+    console.error("Get Term Taxonomy Controller Error:", error);
+    return errorResponse(res, "Error getting term taxonomy", 500);
+  }
+};
+
 module.exports = {
+  chatWithAgent,
   getSuggestions,
   getSearchSuggestions,
   getRelatedTerms,
@@ -508,4 +675,7 @@ module.exports = {
   getContextualActions,
   suggestSearchKeywords,
   getContributionRecommendation,
+  identifyTerms,
+  translateTerm,
+  getTermTaxonomy,
 };
