@@ -11,6 +11,7 @@ const {
   TERM_STATUS,
   USER_ROLES,
   NOTIFICATION_TYPES,
+  CONTRIBUTION_TYPES,
 } = require("../utils/constants");
 
 const TERM_LANGUAGES = ["vi", "en", "lo"];
@@ -68,7 +69,9 @@ const getSimilarTerms = async (termEntries, inputCategoryId) => {
   const similarDocs = await Term.find({
     status: TERM_STATUS.APPROVED,
     isDeleted: { $ne: true },
-    $or: partialMatchers.map(({ lang, regex }) => ({ [`term.${lang}`]: regex })),
+    $or: partialMatchers.map(({ lang, regex }) => ({
+      [`term.${lang}`]: regex,
+    })),
   })
     .select("term category")
     .populate("category", "name slug")
@@ -132,39 +135,99 @@ exports.createContribution = async (userId, contributionData) => {
     ...contributionData,
   });
 
-  const termEntries = getNormalizedTermEntries(normalizedContributionData.term);
-  const exactMatchers = termEntries.map(({ lang, value }) => ({
-    lang,
-    regex: new RegExp(`^${escapeRegExp(value)}$`, "i"),
-  }));
-
-  const existingTerm =
-    exactMatchers.length > 0
-      ? await Term.findOne({
-          category: normalizedContributionData.category,
-          status: TERM_STATUS.APPROVED,
-          isDeleted: { $ne: true },
-          $or: exactMatchers.map(({ lang, regex }) => ({
-            [`term.${lang}`]: regex,
-          })),
-        })
-      : null;
-
-  if (existingTerm) {
-    const similarTerms = await getSimilarTerms(
-      termEntries,
-      normalizedContributionData.category,
+  // Chỉ check duplicate cho các đóng góp loại "new_term"
+  // Không check cho "edit_term" vì đó là sửa term hiện có
+  if (normalizedContributionData.type === CONTRIBUTION_TYPES.NEW_TERM) {
+    const termEntries = getNormalizedTermEntries(
+      normalizedContributionData.term,
     );
+    const exactMatchers = termEntries.map(({ lang, value }) => ({
+      lang,
+      regex: new RegExp(`^${escapeRegExp(value)}$`, "i"),
+    }));
 
-    const error = new Error(
-      "Thuật ngữ đã tồn tại trong danh mục này. Vui lòng kiểm tra lại hoặc đóng góp gợi ý sửa nếu bạn muốn chỉnh sửa thuật ngữ hiện có.",
+    const existingTerm =
+      exactMatchers.length > 0
+        ? await Term.findOne({
+            category: normalizedContributionData.category,
+            status: TERM_STATUS.APPROVED,
+            isDeleted: { $ne: true },
+            $or: exactMatchers.map(({ lang, regex }) => ({
+              [`term.${lang}`]: regex,
+            })),
+          })
+        : null;
+
+    if (existingTerm) {
+      const similarTerms = await getSimilarTerms(
+        termEntries,
+        normalizedContributionData.category,
+      );
+
+      const error = new Error(
+        "Thuật ngữ đã tồn tại trong danh mục này. Vui lòng kiểm tra lại hoặc đóng góp gợi ý sửa nếu bạn muốn chỉnh sửa thuật ngữ hiện có.",
+      );
+      error.statusCode = 400;
+      error.errors = {
+        code: "TERM_ALREADY_EXISTS_IN_CATEGORY",
+        similarTerms,
+      };
+      throw error;
+    }
+  }
+
+  if (normalizedContributionData.type === CONTRIBUTION_TYPES.EDIT_TERM) {
+    const targetTerm = await Term.findOne({
+      _id: normalizedContributionData.targetTerm,
+      status: TERM_STATUS.APPROVED,
+      isDeleted: { $ne: true },
+    }).select("_id");
+
+    if (!targetTerm) {
+      const error = new Error(
+        "Không tìm thấy thuật ngữ gốc để gợi ý chỉnh sửa",
+      );
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const termEntries = getNormalizedTermEntries(
+      normalizedContributionData.term,
     );
-    error.statusCode = 400;
-    error.errors = {
-      code: "TERM_ALREADY_EXISTS_IN_CATEGORY",
-      similarTerms,
-    };
-    throw error;
+    const exactMatchers = termEntries.map(({ lang, value }) => ({
+      lang,
+      regex: new RegExp(`^${escapeRegExp(value)}$`, "i"),
+    }));
+
+    const conflictingTerm =
+      exactMatchers.length > 0
+        ? await Term.findOne({
+            _id: { $ne: normalizedContributionData.targetTerm },
+            category: normalizedContributionData.category,
+            status: TERM_STATUS.APPROVED,
+            isDeleted: { $ne: true },
+            $or: exactMatchers.map(({ lang, regex }) => ({
+              [`term.${lang}`]: regex,
+            })),
+          })
+        : null;
+
+    if (conflictingTerm) {
+      const similarTerms = await getSimilarTerms(
+        termEntries,
+        normalizedContributionData.category,
+      );
+
+      const error = new Error(
+        "Đề xuất chỉnh sửa gây trùng thuật ngữ trong danh mục đã chọn. Vui lòng kiểm tra lại.",
+      );
+      error.statusCode = 400;
+      error.errors = {
+        code: "EDIT_TERM_CONFLICT_IN_CATEGORY",
+        similarTerms,
+      };
+      throw error;
+    }
   }
 
   const newContribution = await Contribution.create({
@@ -257,10 +320,15 @@ exports.getContribution = async (filter = {}, options = {}, user = null) => {
       .populate("contributor", "fullName email")
       .populate("category", "name")
       .populate("moderator", "fullName")
-      .populate(
-        "targetTerm",
-        "term definition detailedExplanation examples partOfSpeech tags slug",
-      ),
+      .populate({
+        path: "targetTerm",
+        select:
+          "term definition detailedExplanation examples partOfSpeech tags slug category",
+        populate: {
+          path: "category",
+          select: "name",
+        },
+      }),
     Contribution.countDocuments(query),
   ]);
 
@@ -329,7 +397,13 @@ exports.getContributionById = async (contributionId) => {
     .populate("contributor", "fullName email")
     .populate("category", "name description")
     .populate("moderator", "fullName ")
-    .populate("targetTerm");
+    .populate({
+      path: "targetTerm",
+      populate: {
+        path: "category",
+        select: "name",
+      },
+    });
 
   if (!contribution || contribution.isDeleted) {
     const error = new Error("Không tìm thấy đóng góp");
@@ -408,6 +482,7 @@ exports.approveContribution = async (
         examples: approvedData.examples,
         partOfSpeech: approvedData.partOfSpeech,
         tags: approvedData.tags,
+        category: contribution.category,
         lastModifiedBy: moderatorId,
       },
       { new: true },
