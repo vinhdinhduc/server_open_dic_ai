@@ -36,7 +36,8 @@ const errorHandler = (err, req, res, next) => {
   return errorResponse(
     res,
     err.message || "Lỗi máy chủ",
-    err.statusCode || 500
+    err.statusCode || 500,
+    err.errors || null,
   );
 };
 

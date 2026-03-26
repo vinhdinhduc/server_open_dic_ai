@@ -28,7 +28,7 @@ exports.getSystemOverview = async () => {
     Contribution.countDocuments(),
     Comment.countDocuments(),
     Category.countDocuments({ isActive: true }),
-    Report.countDocuments(),
+    Report.countDocuments({ status: "pending" }),
     User.countDocuments({ status: "active" }),
     Contribution.countDocuments({ status: "pending" }),
     Term.countDocuments({ status: "approved" }),

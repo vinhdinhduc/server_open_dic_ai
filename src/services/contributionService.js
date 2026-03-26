@@ -13,6 +13,84 @@ const {
   NOTIFICATION_TYPES,
 } = require("../utils/constants");
 
+const TERM_LANGUAGES = ["vi", "en", "lo"];
+
+const escapeRegExp = (value = "") =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const getNormalizedTermEntries = (term = {}) =>
+  TERM_LANGUAGES.map((lang) => ({
+    lang,
+    value: typeof term?.[lang] === "string" ? term[lang].trim() : "",
+  })).filter((entry) => entry.value.length > 0);
+
+const toSimilarTermPayload = (termDoc, inputCategoryId, exactMatchers = []) => {
+  const resolvedCategoryId = termDoc?.category?._id || termDoc?.category;
+  const isSameCategory =
+    inputCategoryId && resolvedCategoryId
+      ? resolvedCategoryId.toString() === inputCategoryId.toString()
+      : false;
+
+  const isExactMatch = exactMatchers.some(({ lang, regex }) => {
+    const value = termDoc?.term?.[lang];
+    return typeof value === "string" && regex.test(value.trim());
+  });
+
+  return {
+    _id: termDoc._id,
+    term: termDoc.term,
+    category: {
+      _id: termDoc?.category?._id || termDoc?.category || null,
+      name: termDoc?.category?.name || {},
+      slug: termDoc?.category?.slug || "",
+    },
+    url: `/terms/${termDoc._id}`,
+    isSameCategory,
+    isExactMatch,
+  };
+};
+
+const getSimilarTerms = async (termEntries, inputCategoryId) => {
+  if (!Array.isArray(termEntries) || termEntries.length === 0) {
+    return [];
+  }
+
+  const partialMatchers = termEntries.map(({ lang, value }) => ({
+    lang,
+    regex: new RegExp(escapeRegExp(value), "i"),
+  }));
+
+  const exactMatchers = termEntries.map(({ lang, value }) => ({
+    lang,
+    regex: new RegExp(`^${escapeRegExp(value)}$`, "i"),
+  }));
+
+  const similarDocs = await Term.find({
+    status: TERM_STATUS.APPROVED,
+    isDeleted: { $ne: true },
+    $or: partialMatchers.map(({ lang, regex }) => ({ [`term.${lang}`]: regex })),
+  })
+    .select("term category")
+    .populate("category", "name slug")
+    .limit(10)
+    .lean();
+
+  return similarDocs
+    .map((doc) => toSimilarTermPayload(doc, inputCategoryId, exactMatchers))
+    .sort((a, b) => {
+      if (a.isExactMatch !== b.isExactMatch) {
+        return a.isExactMatch ? -1 : 1;
+      }
+
+      if (a.isSameCategory !== b.isSameCategory) {
+        return a.isSameCategory ? -1 : 1;
+      }
+
+      return 0;
+    })
+    .slice(0, 5);
+};
+
 const buildApprovedContributionData = (contribution, overrideData = {}) => {
   const cloneMultiLang = (value) => ({
     vi: value?.vi || "",
@@ -50,8 +128,47 @@ const buildApprovedContributionData = (contribution, overrideData = {}) => {
 };
 //Tạo đóng góp thuật ngữ mới
 exports.createContribution = async (userId, contributionData) => {
+  const normalizedContributionData = normalizeContributionData({
+    ...contributionData,
+  });
+
+  const termEntries = getNormalizedTermEntries(normalizedContributionData.term);
+  const exactMatchers = termEntries.map(({ lang, value }) => ({
+    lang,
+    regex: new RegExp(`^${escapeRegExp(value)}$`, "i"),
+  }));
+
+  const existingTerm =
+    exactMatchers.length > 0
+      ? await Term.findOne({
+          category: normalizedContributionData.category,
+          status: TERM_STATUS.APPROVED,
+          isDeleted: { $ne: true },
+          $or: exactMatchers.map(({ lang, regex }) => ({
+            [`term.${lang}`]: regex,
+          })),
+        })
+      : null;
+
+  if (existingTerm) {
+    const similarTerms = await getSimilarTerms(
+      termEntries,
+      normalizedContributionData.category,
+    );
+
+    const error = new Error(
+      "Thuật ngữ đã tồn tại trong danh mục này. Vui lòng kiểm tra lại hoặc đóng góp gợi ý sửa nếu bạn muốn chỉnh sửa thuật ngữ hiện có.",
+    );
+    error.statusCode = 400;
+    error.errors = {
+      code: "TERM_ALREADY_EXISTS_IN_CATEGORY",
+      similarTerms,
+    };
+    throw error;
+  }
+
   const newContribution = await Contribution.create({
-    ...normalizeContributionData(contributionData),
+    ...normalizedContributionData,
     contributor: userId,
     status: CONTRIBUTION_STATUS.PENDING,
   });
