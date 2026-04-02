@@ -34,7 +34,9 @@ router.get("/email-config", userController.getEmailConfig);
  * @access  Private - Admin
  */
 router.put("/email-config", userController.updateEmailConfig);
-
+router.get("/email-templates", userController.getEmailTemplates);
+router.put("/email-templates/:key", userController.updateEmailTemplate);
+router.delete("/email-templates/:key", userController.resetEmailTemplate);
 /**
  * @route   POST /api/users/test-email
  * @desc    Test cấu hình email

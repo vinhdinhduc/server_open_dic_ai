@@ -1,9 +1,5 @@
 const mongoose = require("mongoose");
 
-/**
- * Điểm Uy Tín (ĐUT) - Reputation Point Model
- * Lưu trữ lịch sử từng lần cộng/trừ điểm
- */
 const reputationHistorySchema = new mongoose.Schema(
   {
     user: {
@@ -193,9 +189,6 @@ reputationSummarySchema.index({ totalPoints: -1 });
 reputationSummarySchema.index({ level: 1 });
 reputationSummarySchema.index({ user: 1 }, { unique: true });
 
-/**
- * Yêu cầu đổi quà / điểm rèn luyện
- */
 const redemptionRequestSchema = new mongoose.Schema(
   {
     user: {

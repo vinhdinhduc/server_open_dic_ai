@@ -64,8 +64,8 @@ const noSqlInjectionProtection = (req, res, next) => {
   // Sanitize là xóa bỏ các ký tự nguy hiểm, không modify req.query trực tiếp
   const sanitizeValue = (value) => {
     if (typeof value === "string") {
-      // Loại bỏ các operators MongoDB nguy hiểm
-      return value.replace(/[${}]/g, "");
+      // Không thay đổi string để tránh làm hỏng placeholder như {{userName}}.
+      return value;
     }
     // Xử lý mảng trước khi xử lý object (vì Array cũng là typeof "object")
     if (Array.isArray(value)) {
@@ -139,6 +139,45 @@ const RICH_TEXT_FIELDS = new Set([
   "lo",
 ]);
 
+const EMAIL_TEMPLATE_HTML_FIELDS = new Set([
+  "email_template_shell_footer_note",
+  "email_template_shell_footer_copyright",
+]);
+
+const EMAIL_TEMPLATE_CONTENT_FIELDS = new Set(["intro", "warningHtml"]);
+
+const EMAIL_TEMPLATE_BODY_KEY_REGEX = /^email_template_[a-zA-Z0-9_]+_body$/;
+
+const EMAIL_TEMPLATE_XSS_WHITELIST = {
+  p: ["style"],
+  br: [],
+  strong: ["style"],
+  b: ["style"],
+  em: ["style"],
+  i: ["style"],
+  u: ["style"],
+  span: ["style"],
+  div: ["style"],
+  ul: ["style"],
+  ol: ["style"],
+  li: ["style"],
+  a: ["href", "target", "rel", "style"],
+  h1: ["style"],
+  h2: ["style"],
+  h3: ["style"],
+  h4: ["style"],
+  table: ["style", "cellpadding", "cellspacing", "width"],
+  tbody: [],
+  thead: [],
+  tr: ["style"],
+  td: ["style", "align", "valign", "colspan", "rowspan", "width"],
+  th: ["style", "align", "valign", "colspan", "rowspan", "width"],
+};
+
+const isEmailTemplateHtmlField = (fieldName = "") =>
+  EMAIL_TEMPLATE_HTML_FIELDS.has(fieldName) ||
+  EMAIL_TEMPLATE_BODY_KEY_REGEX.test(fieldName);
+
 /**
  * Middleware chống XSS (Cross-Site Scripting)
  * - Rich-text fields (definition, detailedExplanation và các subkey ngôn ngữ)
@@ -146,13 +185,17 @@ const RICH_TEXT_FIELDS = new Set([
  * - Tất cả các fields khác bị strip sạch HTML.
  */
 const xssProtection = (req, res, next) => {
+  const isEmailTemplateAdminRequest =
+    req.originalUrl?.includes("/api/users/email-templates/") ||
+    req.path?.includes("/api/users/email-templates/");
+
   /**
    * Sanitize một giá trị string theo chế độ được chỉ định.
    * @param {string} value - chuỗi cần xử lý
-   * @param {boolean} isRichText - nếu true dùng whitelist Quill, nếu false strip toàn bộ
+   * @param {"plain" | "richText" | "emailTemplateHtml"} mode - chế độ sanitize
    */
-  const sanitizeString = (value, isRichText = false) => {
-    if (isRichText) {
+  const sanitizeString = (value, mode = "plain") => {
+    if (mode === "richText") {
       return xss(value, {
         whiteList: RICH_TEXT_XSS_WHITELIST,
         stripIgnoreTag: true,
@@ -167,6 +210,29 @@ const xssProtection = (req, res, next) => {
         },
       });
     }
+
+    if (mode === "emailTemplateHtml") {
+      return xss(value, {
+        whiteList: EMAIL_TEMPLATE_XSS_WHITELIST,
+        stripIgnoreTag: true,
+        stripIgnoreTagBody: ["script", "style"],
+        css: false,
+        onTagAttr: (tag, name, value) => {
+          // Chặn mọi event handler attribute (onclick, onload, ...)
+          if (/^on\w+/i.test(name)) return "";
+
+          if (name === "href" || name === "src") {
+            const isVariable = /^{{\s*[a-zA-Z0-9_]+\s*}}$/.test(value);
+            const isSafeLink = /^(https?:|mailto:|\/)/i.test(value);
+            if (isVariable) return `${name}="${value}"`;
+            if (!isVariable && !isSafeLink) return "";
+          }
+
+          return undefined;
+        },
+      });
+    }
+
     return xss(value, {
       whiteList: {},
       stripIgnoreTag: true,
@@ -181,8 +247,21 @@ const xssProtection = (req, res, next) => {
    */
   const sanitizeValue = (value, parentKey = null) => {
     if (typeof value === "string") {
+      const currentKey = parentKey || "";
+
+      if (
+        isEmailTemplateAdminRequest &&
+        EMAIL_TEMPLATE_CONTENT_FIELDS.has(currentKey)
+      ) {
+        return sanitizeString(value, "emailTemplateHtml");
+      }
+
+      if (isEmailTemplateHtmlField(currentKey)) {
+        return sanitizeString(value, "emailTemplateHtml");
+      }
+
       const isRichText = parentKey !== null && RICH_TEXT_FIELDS.has(parentKey);
-      return sanitizeString(value, isRichText);
+      return sanitizeString(value, isRichText ? "richText" : "plain");
     }
     if (Array.isArray(value)) {
       // Mảng ví dụ (examples) – các phần tử là object {vi, en, lo}

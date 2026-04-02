@@ -66,6 +66,18 @@ router.get(
 );
 
 /**
+ * @route   GET /api/report-stats/ai-requests-daily
+ * @desc    Lấy thống kê mức độ request AI theo ngày
+ * @access  Private - Admin
+ */
+router.get(
+  "/ai-requests-daily",
+  authenticate,
+  isAdmin,
+  reportStatsController.getAIRequestsDaily,
+);
+
+/**
  * @route   GET /api/report-stats/top-contributors
  * @desc    Lấy top người đóng góp
  * @access  Private - Admin

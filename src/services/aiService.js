@@ -1,4 +1,5 @@
 const SystemConfig = require("../models/SystemConfig");
+const AIUsageDaily = require("../models/AIUsageDaily");
 const notificationService = require("./notificationService");
 const termService = require("./termService");
 const { NOTIFICATION_TYPES } = require("../utils/constants");
@@ -361,8 +362,12 @@ const resetDailyUsageIfNeeded = () => {
 
 const trackAPIUsage = async (tokensUsed = 0) => {
   resetDailyUsageIfNeeded();
+  const safeTokensUsed = Number.isFinite(tokensUsed)
+    ? Math.max(tokensUsed, 0)
+    : 0;
+
   dailyUsage.requestCount++;
-  dailyUsage.tokenCount += tokensUsed;
+  dailyUsage.tokenCount += safeTokensUsed;
 
   const maxDailyRequests = await SystemConfig.getValue(
     "ai_max_daily_requests",
@@ -376,6 +381,25 @@ const trackAPIUsage = async (tokensUsed = 0) => {
   const requestPercent = (dailyUsage.requestCount / maxDailyRequests) * 100;
   const tokenPercent =
     maxDailyTokens > 0 ? (dailyUsage.tokenCount / maxDailyTokens) * 100 : 0;
+
+  // Persist per-day usage for admin statistics charts
+  try {
+    const dayDate = new Date(`${dailyUsage.date}T00:00:00.000Z`);
+    await AIUsageDaily.findOneAndUpdate(
+      { dateKey: dailyUsage.date },
+      {
+        $setOnInsert: { dateKey: dailyUsage.date, date: dayDate },
+        $inc: { requestCount: 1, tokenCount: safeTokensUsed },
+        $set: {
+          maxDailyRequests,
+          maxDailyTokens,
+        },
+      },
+      { upsert: true, new: true },
+    );
+  } catch (persistError) {
+    console.error("Persist AI daily usage error:", persistError.message);
+  }
 
   // Warning at 80%
   if (

@@ -86,6 +86,23 @@ exports.getContributionsOverTime = async (req, res, next) => {
 };
 
 /**
+ * Lấy thống kê mức độ request AI theo ngày
+ */
+exports.getAIRequestsDaily = async (req, res, next) => {
+  try {
+    const { days = 14 } = req.query;
+    const data = await reportStatsService.getAIRequestsDaily(parseInt(days));
+    return successResponse(
+      res,
+      "Lấy thống kê request AI theo ngày thành công",
+      data,
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Lấy top người đóng góp
  */
 exports.getTopContributors = async (req, res, next) => {

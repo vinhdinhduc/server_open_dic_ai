@@ -5,6 +5,8 @@ const Contribution = require("../models/Contribution");
 const Comment = require("../models/Comment");
 const Report = require("../models/Report");
 const SearchHistory = require("../models/SearchHistory");
+const AIUsageDaily = require("../models/AIUsageDaily");
+const SystemConfig = require("../models/SystemConfig");
 const mongoose = require("mongoose");
 
 /**
@@ -190,6 +192,66 @@ exports.getContributionsOverTime = async (months = 12) => {
 };
 
 /**
+ * Thống kê mức độ request AI theo ngày
+ */
+exports.getAIRequestsDaily = async (days = 14) => {
+  const normalizedDays = Math.min(Math.max(parseInt(days, 10) || 14, 1), 90);
+
+  const today = new Date();
+  const endDate = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+  );
+  const startDate = new Date(endDate);
+  startDate.setUTCDate(startDate.getUTCDate() - normalizedDays + 1);
+
+  const [dailyDocs, maxDailyRequestsConfig, maxDailyTokensConfig] =
+    await Promise.all([
+      AIUsageDaily.find({ date: { $gte: startDate } })
+        .sort({ date: 1 })
+        .lean(),
+      SystemConfig.getValue("ai_max_daily_requests", 1000),
+      SystemConfig.getValue("ai_max_daily_tokens", 500000),
+    ]);
+
+  const docMap = new Map(dailyDocs.map((doc) => [doc.dateKey, doc]));
+  const data = [];
+
+  for (let i = 0; i < normalizedDays; i++) {
+    const dateObj = new Date(startDate);
+    dateObj.setUTCDate(startDate.getUTCDate() + i);
+    const dateKey = dateObj.toISOString().split("T")[0];
+
+    const doc = docMap.get(dateKey);
+    const requestCount = doc?.requestCount || 0;
+    const tokenCount = doc?.tokenCount || 0;
+    const maxDailyRequests = doc?.maxDailyRequests || maxDailyRequestsConfig;
+    const maxDailyTokens = doc?.maxDailyTokens || maxDailyTokensConfig;
+
+    data.push({
+      date: dateKey,
+      requestCount,
+      tokenCount,
+      maxDailyRequests,
+      maxDailyTokens,
+      requestPercent:
+        maxDailyRequests > 0
+          ? Number(((requestCount / maxDailyRequests) * 100).toFixed(2))
+          : 0,
+      tokenPercent:
+        maxDailyTokens > 0
+          ? Number(((tokenCount / maxDailyTokens) * 100).toFixed(2))
+          : 0,
+    });
+  }
+
+  return {
+    days: normalizedDays,
+    data,
+    today: data[data.length - 1] || null,
+  };
+};
+
+/**
  * Top người đóng góp
  */
 exports.getTopContributors = async (limit = 10) => {
@@ -341,6 +403,7 @@ exports.getFullReport = async (options = {}) => {
     topViewedTerms,
     usersByRole,
     recentActivity,
+    aiRequestsDaily,
   ] = await Promise.all([
     exports.getSystemOverview(),
     exports.getTermsOverTime(period, months),
@@ -351,6 +414,7 @@ exports.getFullReport = async (options = {}) => {
     exports.getTopViewedTerms(10),
     exports.getUsersByRole(),
     exports.getRecentActivity(20),
+    exports.getAIRequestsDaily(14),
   ]);
 
   return {
@@ -363,5 +427,6 @@ exports.getFullReport = async (options = {}) => {
     topViewedTerms,
     usersByRole,
     recentActivity,
+    aiRequestsDaily,
   };
 };
