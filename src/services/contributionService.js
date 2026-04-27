@@ -595,7 +595,7 @@ exports.rejectContribution = async (
   contribution.deletedBy = moderatorId;
   await contribution.save();
 
-  //Send thông báo cho kiểm duyệt viên và admin
+  // Gửi thông báo cho kiểm duyệt viên và admin
   await Notification.create({
     recipient: contribution.contributor,
     type: NOTIFICATION_TYPES.CONTRIBUTION_REJECTED,

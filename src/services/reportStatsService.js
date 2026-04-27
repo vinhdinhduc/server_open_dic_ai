@@ -351,7 +351,7 @@ exports.getRecentActivity = async (limit = 20) => {
         .lean(),
     ]);
 
-  // Merge and sort by date
+  // Gộp và sắp xếp theo ngày
   const activities = [
     ...recentTerms.map((t) => ({
       type: "term",

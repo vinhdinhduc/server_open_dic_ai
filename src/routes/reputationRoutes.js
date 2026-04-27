@@ -5,8 +5,6 @@ const { authenticate } = require("../middlewares/auth");
 const { isAdmin } = require("../middlewares/authorize");
 const { validatePagination } = require("../middlewares/validate");
 
-// ===== User routes =====
-
 // Điểm uy tín của user hiện tại
 router.get("/me", authenticate, reputationController.getMyReputation);
 
@@ -35,21 +33,19 @@ router.get(
   reputationController.getMyRedemptions,
 );
 
-// Tải PDF giấy xác nhận (user tải của mình)
+// Tải PDF giấy xác nhận
 router.get(
   "/redemptions/:id/certificate",
   authenticate,
   reputationController.downloadCertificate,
 );
 
-// Bảng xếp hạng (public)
+// Bảng xếp hạng (công khai)
 router.get(
   "/leaderboard",
   validatePagination,
   reputationController.getLeaderboard,
 );
-
-// ===== Admin routes =====
 
 // Xem ĐUT của user cụ thể
 router.get(
@@ -84,7 +80,7 @@ router.put(
   reputationController.reviewRedemption,
 );
 
-// Tải PDF giấy xác nhận (admin)
+// Tải PDF giấy xác nhận (quản trị viên)
 router.get(
   "/admin/redemptions/:id/certificate",
   authenticate,

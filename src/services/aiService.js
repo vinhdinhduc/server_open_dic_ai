@@ -59,7 +59,6 @@ const isLikelyOutOfScope = (query = "") => {
     return false;
   }
 
-  // Single/short phrases are usually term lookups.
   if (trimmed.split(/\s+/).length <= 3 && trimmed.length <= 40) {
     return false;
   }
@@ -338,7 +337,7 @@ const buildRelatedTermLinksFromQuery = async (query, language = "vi") => {
   }
 };
 
-// In-memory daily usage counter (resets on server restart or daily)
+// Bộ đếm sử dụng theo ngày trong bộ nhớ (reset khi khởi động lại server hoặc sang ngày mới)
 let dailyUsage = {
   date: new Date().toISOString().split("T")[0],
   requestCount: 0,
@@ -382,7 +381,7 @@ const trackAPIUsage = async (tokensUsed = 0) => {
   const tokenPercent =
     maxDailyTokens > 0 ? (dailyUsage.tokenCount / maxDailyTokens) * 100 : 0;
 
-  // Persist per-day usage for admin statistics charts
+  // Lưu thống kê sử dụng theo ngày cho biểu đồ quản trị
   try {
     const dayDate = new Date(`${dailyUsage.date}T00:00:00.000Z`);
     await AIUsageDaily.findOneAndUpdate(
@@ -568,7 +567,7 @@ const askAboutTerm = async (term, language = "vi", userId) => {
       return getMockResponse(term, language);
     }
 
-    // Check daily API limits before calling
+    // Kiểm tra giới hạn API theo ngày trước khi gọi
     const usageCheck = await trackAPIUsage(0);
     if (usageCheck.limitReached) {
       console.warn("AI API daily limit reached, returning mock response");
@@ -581,7 +580,7 @@ const askAboutTerm = async (term, language = "vi", userId) => {
     // Gọi API của nhà cung cấp AI
     const aiResponse = await callAiProvider(prompt, config);
 
-    // Track token usage (estimate from response length)
+    // Theo dõi mức dùng token (ước lượng theo độ dài phản hồi)
     const estimatedTokens = Math.ceil(
       (prompt.length + (aiResponse?.length || 0)) / 4,
     );
@@ -680,7 +679,7 @@ const callGeminiAPI = async (prompt, config, options = {}) => {
     console.error("Gemini SDK Error:", error.message);
     console.error("Error stack:", error.stack);
 
-    // Better error messages
+    // Thông báo lỗi rõ ràng hơn
     if (error.message.includes("API_KEY_INVALID")) {
       throw new Error("API key không hợp lệ. Vui lòng kiểm tra lại.");
     } else if (error.message.includes("RESOURCE_EXHAUSTED")) {
@@ -867,7 +866,6 @@ const parseAIResponse = (aiResponse, term, language, config) => {
  */
 const cleanJsonString = (jsonStr) => {
   try {
-    // Thử parse trực tiếp trước
     JSON.parse(jsonStr);
     return jsonStr;
   } catch (e) {
@@ -940,9 +938,6 @@ const getMockResponse = (term, language) => {
   };
 };
 
-/**
- * Chat với AI Agent theo ngữ cảnh trang, trả lời tự nhiên (không ép JSON)
- */
 const askAgentChat = async ({
   query,
   language = "vi",
@@ -1011,7 +1006,6 @@ const askAgentChat = async ({
       };
     }
 
-    // Check daily API limits before calling provider
     const usageCheck = await trackAPIUsage(0);
     if (usageCheck.limitReached) {
       return {
@@ -1187,9 +1181,6 @@ const updateConfig = async (configData, userId) => {
   }
 };
 
-/**
- * Test kết nối AI với một prompt mẫu
- */
 const testConnection = async () => {
   try {
     const testTerm = "Machine Learning";
@@ -1213,10 +1204,8 @@ const testConnection = async () => {
   }
 };
 
-/**
- *
- * Xác định và phân loại các thuật ngữ tiềm năng từ một truy vấn người dùng, trả về danh sách các thuật ngữ với tên, lĩnh vực, độ tin cậy, và gợi ý dịch sang các ngôn ngữ khác
- */
+// Xác định và phân loại các thuật ngữ tiềm năng từ một truy vấn người dùng, trả về danh sách các thuật ngữ với tên, lĩnh vực, độ tin cậy, và gợi ý dịch sang các ngôn ngữ khác
+
 const identifyAndClassifyTerms = async ({
   query,
   language = "vi",
@@ -1234,7 +1223,6 @@ const identifyAndClassifyTerms = async ({
       };
     }
 
-    // Create a structured prompt for term identification and classification
     const termIdentificationPrompt = `
 You are a multilingual terminology expert for OpenDict - an open-source dictionary system.
 
@@ -1290,7 +1278,6 @@ Return ONLY the JSON array, no markdown wrappers or extra text. If you detect no
       parsedTerms = [];
     }
 
-    // Estimate tokens and track usage
     const estimatedTokens = Math.ceil(
       (termIdentificationPrompt.length + aiResponse.length) / 4,
     );
@@ -1394,7 +1381,6 @@ Return ONLY JSON, no markdown wrappers.
       };
     }
 
-    // Track API usage
     const estimatedTokens = Math.ceil(
       (translationPrompt.length + aiResponse.length) / 4,
     );
@@ -1479,7 +1465,6 @@ Return ONLY JSON, no markdown.
       console.warn("Taxonomy JSON parse error:", parseErr);
     }
 
-    // Track API usage
     const estimatedTokens = Math.ceil(
       (taxonomyPrompt.length + aiResponse.length) / 4,
     );

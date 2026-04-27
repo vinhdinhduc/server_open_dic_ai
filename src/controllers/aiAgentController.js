@@ -6,9 +6,9 @@ const reputationService = require("../services/reputationService");
 const { successResponse, errorResponse } = require("../utils/response");
 const { REPUTATION } = require("../utils/constants");
 
-/**
- * Chat với AI Agent (natural response + context-aware + scope guard)
- * POST /api/ai/agent/chat
+/*
+  Chat với AI Agent 
+  POST /api/ai/agent/chat
  */
 const chatWithAgent = async (req, res) => {
   try {
@@ -16,7 +16,7 @@ const chatWithAgent = async (req, res) => {
     const userId = req.user?.id;
 
     if (!query || String(query).trim().length === 0) {
-      return errorResponse(res, "Query is required", 400);
+      return errorResponse(res, "Vui lòng nhập nội dung truy vấn", 400);
     }
 
     const result = await aiService.askAgentChat({
@@ -29,25 +29,29 @@ const chatWithAgent = async (req, res) => {
     if (!result.success) {
       return errorResponse(
         res,
-        result.message || "Failed to process request",
+        result.message || "Không thể xử lý yêu cầu",
         400,
       );
     }
 
     return successResponse(
       res,
-      "Agent response generated successfully",
+      "Đã tạo phản hồi từ AI Agent thành công",
       result.data,
     );
   } catch (error) {
     console.error("AI Agent Chat Controller Error:", error);
-    return errorResponse(res, "Error processing AI agent chat", 500);
+    return errorResponse(
+      res,
+      "Có lỗi khi xử lý cuộc trò chuyện với AI Agent",
+      500,
+    );
   }
 };
 
-/**
- * Lấy đề xuất hành động tiếp theo dựa trên context
- * POST /api/ai/agent/suggestions
+/*
+  Lấy đề xuất hành động tiếp theo dựa trên context
+  POST /api/ai/agent/suggestions
  */
 const getSuggestions = async (req, res) => {
   try {
@@ -55,7 +59,7 @@ const getSuggestions = async (req, res) => {
     const userId = req.user?.id;
 
     if (!context) {
-      return errorResponse(res, "Context is required", 400);
+      return errorResponse(res, "Thiếu thông tin ngữ cảnh", 400);
     }
 
     const suggestions = [];
@@ -77,7 +81,6 @@ const getSuggestions = async (req, res) => {
       const terms = searchResult?.terms || [];
 
       if (terms.length === 0) {
-        // Đề xuất: Hỏi AI về từ không có
         suggestions.push({
           id: `suggest-ask-ai-${Date.now()}`,
           type: "learn",
@@ -91,7 +94,6 @@ const getSuggestions = async (req, res) => {
           priority: 3,
         });
 
-        // Đề xuất: Đóng góp thuật ngữ
         if (userId) {
           suggestions.push({
             id: `suggest-contribute-${Date.now()}`,
@@ -202,18 +204,18 @@ const getSuggestions = async (req, res) => {
       .sort((a, b) => b.priority - a.priority)
       .slice(0, maxSuggestions);
 
-    return successResponse(res, "Suggestions retrieved successfully", {
+    return successResponse(res, "Đã lấy danh sách đề xuất thành công", {
       suggestions: sortedSuggestions,
     });
   } catch (error) {
     console.error("Get Suggestions Error:", error);
-    return errorResponse(res, "Error getting suggestions", 500);
+    return errorResponse(res, "Có lỗi khi lấy danh sách đề xuất", 500);
   }
 };
 
 /**
- * Lấy đề xuất hành động tiếp theo sau khi tìm kiếm
- * POST /api/ai/agent/search-suggestions
+ Lấy đề xuất hành động tiếp theo sau khi tìm kiếm
+ POST /api/ai/agent/search-suggestions
  */
 const getSearchSuggestions = async (req, res) => {
   try {
@@ -221,7 +223,7 @@ const getSearchSuggestions = async (req, res) => {
     const suggestions = [];
 
     if (!query) {
-      return errorResponse(res, "Query is required", 400);
+      return errorResponse(res, "Vui lòng nhập từ khóa tìm kiếm", 400);
     }
 
     if (resultsCount === 0) {
@@ -282,18 +284,22 @@ const getSearchSuggestions = async (req, res) => {
       });
     }
 
-    return successResponse(res, "Search suggestions retrieved successfully", {
-      suggestions,
-    });
+    return successResponse(
+      res,
+      "Đã truy xuất thành công các đề xuất tìm kiếm.",
+      {
+        suggestions,
+      },
+    );
   } catch (error) {
     console.error("Get Search Suggestions Error:", error);
-    return errorResponse(res, "Error getting search suggestions", 500);
+    return errorResponse(res, "Lỗi khi lấy đề xuất tìm kiếm", 500);
   }
 };
 
 /**
- * Lấy danh sách thuật ngữ liên quan
- * GET /api/ai/agent/related-terms/:termId
+ Lấy danh sách thuật ngữ liên quan
+  GET /api/ai/agent/related-terms/:termId
  */
 const getRelatedTerms = async (req, res) => {
   try {
@@ -302,7 +308,7 @@ const getRelatedTerms = async (req, res) => {
 
     const term = await termService.getTermById(termId);
     if (!term) {
-      return errorResponse(res, "Term not found", 404);
+      return errorResponse(res, "Không tìm thấy thuật ngữ", 404);
     }
 
     // Tìm các thuật ngữ liên quan
@@ -323,12 +329,16 @@ const getRelatedTerms = async (req, res) => {
       );
     }
 
-    return successResponse(res, "Related terms retrieved successfully", {
-      terms: relatedTerms.slice(0, 5),
-    });
+    return successResponse(
+      res,
+      "Đã lấy danh sách thuật ngữ liên quan thành công",
+      {
+        terms: relatedTerms.slice(0, 5),
+      },
+    );
   } catch (error) {
     console.error("Get Related Terms Error:", error);
-    return errorResponse(res, "Error getting related terms", 500);
+    return errorResponse(res, "Có lỗi khi lấy thuật ngữ liên quan", 500);
   }
 };
 
@@ -344,12 +354,12 @@ const getSuggestedCategories = async (req, res) => {
       limit: parseInt(limit),
     });
 
-    return successResponse(res, "Categories retrieved successfully", {
+    return successResponse(res, "Đã lấy danh mục đề xuất thành công", {
       categories,
     });
   } catch (error) {
     console.error("Get Suggested Categories Error:", error);
-    return errorResponse(res, "Error getting suggested categories", 500);
+    return errorResponse(res, "Có lỗi khi lấy danh mục đề xuất", 500);
   }
 };
 
@@ -363,24 +373,20 @@ const provideFeedback = async (req, res) => {
     const userId = req.user?.id;
 
     if (!suggestionId || !userAction) {
-      return errorResponse(
-        res,
-        "suggestionId and userAction are required",
-        400,
-      );
+      return errorResponse(res, "Thiếu suggestionId hoặc userAction", 400);
     }
 
-    // Log feedback for AI improvement (có thể lưu vào DB sau)
+    // Ghi log phản hồi để cải thiện AI (có thể lưu vào DB sau)
     console.log(
       `[AI Feedback] User: ${userId}, Action: ${userAction}, Suggestion: ${suggestionId}`,
     );
 
-    return successResponse(res, "Feedback received successfully", {
-      message: "Feedback received",
+    return successResponse(res, "Đã ghi nhận phản hồi thành công", {
+      message: "Đã ghi nhận phản hồi",
     });
   } catch (error) {
     console.error("Provide Feedback Error:", error);
-    return errorResponse(res, "Error providing feedback", 500);
+    return errorResponse(res, "Có lỗi khi gửi phản hồi", 500);
   }
 };
 
@@ -394,7 +400,7 @@ const getContextualActions = async (req, res) => {
     const userId = req.user?.id;
 
     if (!context) {
-      return errorResponse(res, "Context is required", 400);
+      return errorResponse(res, "Thiếu thông tin ngữ cảnh", 400);
     }
 
     const actions = [];
@@ -452,12 +458,12 @@ const getContextualActions = async (req, res) => {
         break;
     }
 
-    return successResponse(res, "Contextual actions retrieved successfully", {
+    return successResponse(res, "Đã lấy các hành động ngữ cảnh thành công", {
       actions,
     });
   } catch (error) {
     console.error("Get Contextual Actions Error:", error);
-    return errorResponse(res, "Error getting contextual actions", 500);
+    return errorResponse(res, "Có lỗi khi lấy hành động ngữ cảnh", 500);
   }
 };
 
@@ -475,29 +481,24 @@ const suggestSearchKeywords = async (req, res) => {
       language,
     });
 
-    return successResponse(res, "Keywords retrieved successfully", {
+    return successResponse(res, "Đã lấy từ khóa gợi ý thành công", {
       keywords: keywords || [],
     });
   } catch (error) {
     console.error("Suggest Search Keywords Error:", error);
-    return errorResponse(res, "Error suggesting keywords", 500);
+    return errorResponse(res, "Có lỗi khi gợi ý từ khóa", 500);
   }
 };
 
-/**
- * Nhận AI recommendation về việc nên đóng góp thuật ngữ hay không
- * POST /api/ai/agent/contribution-recommendation
- */
 const getContributionRecommendation = async (req, res) => {
   try {
     const { term, definition, language = "vi" } = req.body;
     const userId = req.user?.id;
 
     if (!term || !definition) {
-      return errorResponse(res, "term and definition are required", 400);
+      return errorResponse(res, "Thiếu term hoặc definition", 400);
     }
 
-    // Kiểm tra xem thuật ngữ đã tồn tại hay chưa
     const searchResult = await termService.searchTerms(term, {
       limit: 5,
       language,
@@ -537,12 +538,12 @@ const getContributionRecommendation = async (req, res) => {
 
     return successResponse(
       res,
-      "Recommendation retrieved successfully",
+      "Đã lấy khuyến nghị đóng góp thành công",
       recommendation,
     );
   } catch (error) {
     console.error("Get Contribution Recommendation Error:", error);
-    return errorResponse(res, "Error getting recommendation", 500);
+    return errorResponse(res, "Có lỗi khi lấy khuyến nghị", 500);
   }
 };
 
@@ -556,7 +557,7 @@ const identifyTerms = async (req, res) => {
     const userId = req.user?.id;
 
     if (!query || String(query).trim().length === 0) {
-      return errorResponse(res, "Query is required", 400);
+      return errorResponse(res, "Vui lòng nhập nội dung truy vấn", 400);
     }
 
     const result = await aiService.identifyAndClassifyTerms({
@@ -568,14 +569,14 @@ const identifyTerms = async (req, res) => {
     if (!result.success) {
       return errorResponse(
         res,
-        result.message || "Failed to identify terms",
+        result.message || "Không thể nhận diện thuật ngữ",
         400,
       );
     }
 
     return successResponse(
       res,
-      "Terms identified and classified successfully",
+      "Đã nhận diện và phân loại thuật ngữ thành công",
       {
         terms: result.terms,
         count: result.terms?.length || 0,
@@ -583,7 +584,7 @@ const identifyTerms = async (req, res) => {
     );
   } catch (error) {
     console.error("Identify Terms Controller Error:", error);
-    return errorResponse(res, "Error identifying terms", 500);
+    return errorResponse(res, "Có lỗi khi nhận diện thuật ngữ", 500);
   }
 };
 
@@ -602,7 +603,7 @@ const translateTerm = async (req, res) => {
     const userId = req.user?.id;
 
     if (!termName || String(termName).trim().length === 0) {
-      return errorResponse(res, "Term name is required", 400);
+      return errorResponse(res, "Vui lòng nhập tên thuật ngữ", 400);
     }
 
     const result = await aiService.translateTermName({
@@ -615,15 +616,15 @@ const translateTerm = async (req, res) => {
     if (!result.success) {
       return errorResponse(
         res,
-        result.message || "Failed to translate term",
+        result.message || "Không thể dịch thuật ngữ",
         400,
       );
     }
 
-    return successResponse(res, "Term translated successfully", result.data);
+    return successResponse(res, "Đã dịch thuật ngữ thành công", result.data);
   } catch (error) {
     console.error("Translate Term Controller Error:", error);
-    return errorResponse(res, "Error translating term", 500);
+    return errorResponse(res, "Có lỗi khi dịch thuật ngữ", 500);
   }
 };
 
@@ -637,7 +638,7 @@ const getTermTaxonomy = async (req, res) => {
     const userId = req.user?.id;
 
     if (!termName || String(termName).trim().length === 0) {
-      return errorResponse(res, "Term name is required", 400);
+      return errorResponse(res, "Vui lòng nhập tên thuật ngữ", 400);
     }
 
     const result = await aiService.getTermTaxonomy({
@@ -649,19 +650,19 @@ const getTermTaxonomy = async (req, res) => {
     if (!result.success) {
       return errorResponse(
         res,
-        result.message || "Failed to get taxonomy",
+        result.message || "Không thể lấy phân loại thuật ngữ",
         400,
       );
     }
 
     return successResponse(
       res,
-      "Term taxonomy retrieved successfully",
+      "Đã lấy phân loại thuật ngữ thành công",
       result.data,
     );
   } catch (error) {
     console.error("Get Term Taxonomy Controller Error:", error);
-    return errorResponse(res, "Error getting term taxonomy", 500);
+    return errorResponse(res, "Có lỗi khi lấy phân loại thuật ngữ", 500);
   }
 };
 

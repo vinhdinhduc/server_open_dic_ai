@@ -52,7 +52,7 @@ router.post(
   aiAgentController.getContextualActions,
 );
 
-// AI-powered term identification, classification, and translation
+// Nhận diện, phân loại và dịch thuật ngữ bằng AI
 router.post(
   "/identify-terms",
   authenticate,

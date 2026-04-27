@@ -7,7 +7,7 @@ const { aiLimiter } = require("../middlewares/rateLimiter");
 
 // @route   POST /api/ai/ask
 // @desc    Hỏi AI về thuật ngữ
-// @access  Private
+// @access  Riêng tư
 router.post(
   "/ask",
   auth.authenticate,
@@ -17,27 +17,27 @@ router.post(
 
 // @route   GET /api/ai/history
 // @desc    Lấy lịch sử chat AI
-// @access  Private
+// @access  Riêng tư
 router.get("/history", auth.authenticate, aiController.getChatHistory);
 
 // @route   GET /api/ai/status
 // @desc    Kiểm tra trạng thái dịch vụ AI
-// @access  Private
+// @access  Riêng tư
 router.get("/status", auth.authenticate, aiController.getAIStatus);
 
 // @route   GET /api/ai/config
 // @desc    Lấy cấu hình AI hiện tại
-// @access  Private (Admin only)
+// @access  Riêng tư (chỉ Admin)
 router.get("/config", auth.authenticate, isAdmin, aiController.getConfig);
 
 // @route   PUT /api/ai/config
 // @desc    Cập nhật cấu hình AI
-// @access  Private (Admin only)
+// @access  Riêng tư (chỉ Admin)
 router.put("/config", auth.authenticate, isAdmin, aiController.updateConfig);
 
 // @route   POST /api/ai/ask-about-term
 // @desc    AI trả lời câu hỏi về một thuật ngữ cụ thể (từ trang chi tiết)
-// @access  Private
+// @access  Riêng tư
 router.post(
   "/ask-about-term",
   auth.authenticate,
@@ -46,13 +46,13 @@ router.post(
 );
 
 // @route   POST /api/ai/test
-// @desc    Test kết nối AI
-// @access  Private (Admin only)
+// @desc    Kiểm tra kết nối AI
+// @access  Riêng tư (chỉ Admin)
 router.post("/test", auth.authenticate, isAdmin, aiController.testConnection);
 
 // @route   GET /api/ai/usage
 // @desc    Lấy thống kê sử dụng API trong ngày
-// @access  Private (Admin only)
+// @access  Riêng tư (chỉ Admin)
 router.get("/usage", auth.authenticate, isAdmin, aiController.getAPIUsage);
 
 module.exports = router;

@@ -1,19 +1,5 @@
 const crypto = require("crypto");
 
-/**
- * CSRF Protection Middleware (Custom Implementation)
- * Vì csurf đã deprecated, đây là implementation tùy chỉnh
- *
- * CSRF chỉ cần thiết khi sử dụng cookie-based authentication
- * Nếu dùng JWT trong Authorization header thì không cần CSRF protection
- *
- * Cơ chế hoạt động:
- * 1. Server tạo CSRF token và gửi cho client
- * 2. Client gửi token này trong header hoặc body của mọi state-changing request
- * 3. Server verify token trước khi xử lý request
- */
-
-// Store tokens in memory (trong production nên dùng Redis)
 const tokenStore = new Map();
 
 /**
@@ -27,7 +13,7 @@ const generateToken = () => {
  * Middleware tạo và gửi CSRF token
  */
 const csrfTokenGenerator = (req, res, next) => {
-  // Chỉ tạo token cho GET requests
+  // Chỉ tạo token cho yêu cầu GET
   if (req.method === "GET") {
     const token = generateToken();
     const sessionId =
@@ -39,7 +25,7 @@ const csrfTokenGenerator = (req, res, next) => {
     tokenStore.set(sessionId, {
       token,
       createdAt: Date.now(),
-      expiresAt: Date.now() + 60 * 60 * 1000, // 1 giờ
+      expiresAt: Date.now() + 60 * 60 * 1000,
     });
 
     // Gửi token cho client
@@ -58,7 +44,7 @@ const csrfTokenGenerator = (req, res, next) => {
       maxAge: 60 * 60 * 1000,
     });
 
-    // Attach token to request for later use
+    // Gắn token vào request để sử dụng ở bước sau
     req.csrfToken = () => token;
   }
 
@@ -69,9 +55,9 @@ const csrfTokenGenerator = (req, res, next) => {
  * Middleware verify CSRF token
  */
 const csrfProtection = (req, res, next) => {
-  // Skip CSRF check cho:
+  // Bỏ qua kiểm tra CSRF cho:
   // - GET, HEAD, OPTIONS requests (safe methods)
-  // - Requests sử dụng JWT Bearer token (token-based auth không cần CSRF)
+  // - Yêu cầu dùng JWT Bearer token (xác thực bằng token không cần CSRF)
   const safeMethods = ["GET", "HEAD", "OPTIONS"];
   const hasJWTAuth = req.headers.authorization?.startsWith("Bearer ");
 
@@ -96,7 +82,7 @@ const csrfProtection = (req, res, next) => {
     });
   }
 
-  // Verify token
+  // Xác minh token
   const storedData = tokenStore.get(sessionId);
 
   if (!storedData) {
@@ -106,7 +92,7 @@ const csrfProtection = (req, res, next) => {
     });
   }
 
-  // Check expiration
+  // Kiểm tra thời hạn
   if (Date.now() > storedData.expiresAt) {
     tokenStore.delete(sessionId);
     return res.status(403).json({
@@ -115,7 +101,7 @@ const csrfProtection = (req, res, next) => {
     });
   }
 
-  // Verify token match
+  // Xác minh token khớp
   if (storedData.token !== clientToken) {
     console.warn(`[Security] CSRF token mismatch from IP: ${req.ip}`);
     return res.status(403).json({
@@ -142,7 +128,6 @@ const cleanupExpiredTokens = () => {
   }
 };
 
-// Chạy cleanup mỗi 10 phút
 setInterval(cleanupExpiredTokens, 10 * 60 * 1000);
 
 /**
@@ -165,7 +150,7 @@ const doubleSubmitCookie = {
     next();
   },
 
-  // Verify token
+  // Xác minh token
   verifyCsrfToken: (req, res, next) => {
     const safeMethods = ["GET", "HEAD", "OPTIONS"];
     const hasJWTAuth = req.headers.authorization?.startsWith("Bearer ");
@@ -191,7 +176,7 @@ const doubleSubmitCookie = {
 };
 
 /**
- * Endpoint để lấy CSRF token (nếu cần)
+ * Endpoint để lấy CSRF token
  */
 const getCsrfToken = (req, res) => {
   const token = req.csrfToken ? req.csrfToken() : generateToken();

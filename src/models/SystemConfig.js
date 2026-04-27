@@ -45,12 +45,12 @@ const systemConfigSchema = new mongoose.Schema(
   },
 );
 
-// Pre-save hook: Encrypt sensitive data before saving
+// Hook trước khi lưu: mã hóa dữ liệu nhạy cảm
 systemConfigSchema.pre("save", function (next) {
   try {
-    // Check if value is being modified and should be encrypted
+    // Kiểm tra giá trị có thay đổi và cần mã hóa hay không
     if (this.isModified("value") && shouldEncrypt(this.key)) {
-      // Only encrypt if not already encrypted and value is string
+      // Chỉ mã hóa khi chưa mã hóa và giá trị là chuỗi
       if (typeof this.value === "string" && !isEncrypted(this.value)) {
         this.value = encrypt(this.value);
         this.isEncrypted = true;
@@ -62,14 +62,14 @@ systemConfigSchema.pre("save", function (next) {
   }
 });
 
-// Pre-findOneAndUpdate hook: Encrypt sensitive data before update
+// Hook trước findOneAndUpdate: mã hóa dữ liệu nhạy cảm trước khi cập nhật
 systemConfigSchema.pre("findOneAndUpdate", function (next) {
   try {
     const update = this.getUpdate();
     const key = this.getQuery().key;
 
     if (update.value && key && shouldEncrypt(key)) {
-      // Only encrypt if not already encrypted and value is string
+      // Chỉ mã hóa khi chưa mã hóa và giá trị là chuỗi
       if (typeof update.value === "string" && !isEncrypted(update.value)) {
         update.value = encrypt(update.value);
         update.isEncrypted = true;

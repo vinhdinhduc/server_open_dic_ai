@@ -127,7 +127,7 @@ exports.importFromFile = async (file, userId, categoryId) => {
           continue;
         }
 
-        // Check duplicates
+        // Kiểm tra trùng lặp
         const existing = await Term.findOne({
           "term.vi": termVi,
           category: termCategory,
@@ -179,7 +179,7 @@ exports.importFromFile = async (file, userId, categoryId) => {
           sourceType: "system_import",
         });
 
-        // Update category term count
+        // Cập nhật số lượng thuật ngữ của danh mục
         await Category.findByIdAndUpdate(termCategory, {
           $inc: { termCount: 1 },
         });

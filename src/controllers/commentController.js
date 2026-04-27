@@ -1,4 +1,3 @@
-// src/controllers/commentController.js
 const { successResponse } = require("../utils/response");
 const commentService = require("../services/commentService");
 

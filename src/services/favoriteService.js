@@ -3,7 +3,7 @@ const Term = require("../models/Term");
 
 //Add favorite
 exports.addFavorite = async (userId, termId, note = "") => {
-  //Check thuật ngữ có tồn tại không
+  // Kiểm tra thuật ngữ có tồn tại không
 
   const term = await Term.findById(termId);
   if (!term) {
@@ -12,7 +12,7 @@ exports.addFavorite = async (userId, termId, note = "") => {
     throw error;
   }
 
-  //Check đã favorite chưa
+  // Kiểm tra đã yêu thích chưa
   const existingFavorite = await Favorite.findOne({
     user: userId,
     term: termId,
@@ -92,13 +92,13 @@ exports.getFavorites = async (userId, options = {}) => {
   };
 };
 
-//Check term favorite yet or not
+// Kiểm tra thuật ngữ đã được yêu thích hay chưa
 exports.checkFavorite = async (userId, termId) => {
   const favorite = await Favorite.findOne({ user: userId, term: termId });
   return { isFavorited: !!favorite };
 };
 
-// Toggle favorite - thêm nếu chưa có, xóa nếu đã có
+// Bật/tắt yêu thích - thêm nếu chưa có, xóa nếu đã có
 exports.toggleFavorite = async (userId, termId) => {
   const term = await Term.findById(termId);
   if (!term) {

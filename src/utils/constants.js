@@ -36,7 +36,7 @@ module.exports = {
     REJECTED: "rejected",
   },
 
-  // Report (Báo xấu) constants
+  // Hằng số cho báo xấu
   REPORT_TYPES: {
     TERM: "term",
     COMMENT: "comment",

@@ -6,11 +6,6 @@ const {
   getCurrentConfig,
 } = require("../middlewares/rateLimiter");
 
-/**
- * Mask sensitive values in config for safe response
- * @param {Object} config - Config object
- * @returns {Object} - Config with masked sensitive values
- */
 const maskConfigValue = (config) => {
   const configObj = config.toObject ? config.toObject() : config;
 
@@ -43,7 +38,6 @@ exports.getConfigsByCategory = async (req, res, next) => {
       "key value description category isEncrypted",
     );
 
-    // Mask sensitive data unless explicitly requested
     const processedConfigs =
       includeSensitive === "true" ? configs : configs.map(maskConfigValue);
 
@@ -71,7 +65,6 @@ exports.getConfigByKey = async (req, res, next) => {
       throw error;
     }
 
-    // Mask sensitive data unless explicitly requested
     const processedConfig =
       includeSensitive === "true" ? config : maskConfigValue(config);
 
@@ -101,7 +94,6 @@ exports.updateConfigByKey = async (req, res, next) => {
       { new: true, upsert: true },
     );
 
-    // Mask sensitive data in response
     const processedConfig = maskConfigValue(config);
 
     return successResponse(
@@ -146,11 +138,9 @@ exports.updateConfigsBulk = async (req, res, next) => {
         upsert: true,
       });
 
-      // Mask sensitive data in response
       results.push(maskConfigValue(config));
     }
 
-    // Nếu category là security, reload rate limit config
     if (category === "security") {
       await loadRateLimitConfig();
     }
@@ -170,7 +160,6 @@ exports.createConfig = async (req, res, next) => {
   try {
     const { key, value, description, category } = req.body;
 
-    // Check if config already exists
     const existingConfig = await SystemConfig.findOne({ key });
     if (existingConfig) {
       const error = new Error("Cấu hình đã tồn tại");

@@ -6,8 +6,8 @@ const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 const SALT_LENGTH = 64;
 
-// Get encryption key from environment or generate a default one
-// IMPORTANT: In production, MUST use a secure key from environment variable
+// Lấy khóa mã hóa từ môi trường hoặc tạo khóa mặc định
+// QUAN TRỌNG: Trong production, BẮT BUỘC dùng khóa bảo mật từ biến môi trường
 const getEncryptionKey = () => {
   const key = process.env.ENCRYPTION_KEY;
 
@@ -15,11 +15,11 @@ const getEncryptionKey = () => {
     console.warn(
       "  WARNING: ENCRYPTION_KEY not found in environment variables. Using default key (NOT SECURE FOR PRODUCTION)",
     );
-    // Default key for development only - MUST be changed in production
+    // Khóa mặc định chỉ dùng cho môi trường development - BẮT BUỘC đổi ở production
     return crypto.scryptSync("default-encryption-key-change-me", "salt", 32);
   }
 
-  // Derive a 32-byte key from the provided key
+  // Suy ra khóa 32-byte từ khóa đã cung cấp
   return crypto.scryptSync(key, "salt", 32);
 };
 
@@ -41,7 +41,7 @@ const encrypt = (text) => {
 
     const authTag = cipher.getAuthTag();
 
-    // Return format: iv:authTag:encryptedData
+    // Định dạng trả về: iv:authTag:encryptedData
     return `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted}`;
   } catch (error) {
     console.error("Encryption error:", error);
@@ -57,9 +57,9 @@ const encrypt = (text) => {
 const decrypt = (encryptedText) => {
   if (!encryptedText) return encryptedText;
 
-  // Check if the text is actually encrypted (contains colons)
+  // Kiểm tra chuỗi đã được mã hóa chưa (có dấu hai chấm)
   if (!encryptedText.includes(":")) {
-    // Not encrypted, return as is (for backward compatibility)
+    // Chưa mã hóa thì trả về nguyên bản (để tương thích ngược)
     return encryptedText;
   }
 
@@ -114,7 +114,7 @@ const maskSensitiveData = (text, visibleChars = 4) => {
 const isEncrypted = (text) => {
   if (!text || typeof text !== "string") return false;
 
-  // Check format: iv:authTag:encryptedData
+  // Kiểm tra định dạng: iv:authTag:encryptedData
   const parts = text.split(":");
   return (
     parts.length === 3 &&

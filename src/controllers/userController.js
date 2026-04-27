@@ -4,10 +4,6 @@ const exportService = require("../services/exportService");
 const emailService = require("../services/emailService");
 const SystemConfig = require("../models/SystemConfig");
 
-// ─────────────────────────────────────────────────────────────────────────────
-// USER CRUD
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
  * @route   POST /api/users
  * @desc    Tạo người dùng mới
@@ -139,10 +135,6 @@ exports.exportUsersToExcel = async (req, res, next) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// EMAIL SMTP CONFIG
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
  * @route   POST /api/users/test-email
  * @desc    Test email configuration
@@ -156,17 +148,20 @@ exports.testEmailConfig = async (req, res, next) => {
     if (!configTest.success) {
       return res.status(400).json({
         success: false,
-        message: "Email configuration error",
+        message: "Cấu hình email không hợp lệ",
         error: configTest.message,
       });
     }
 
     if (testEmail) {
       await emailService.sendWelcomeEmail(testEmail, "Test User");
-      return successResponse(res, "Email sent successfully to " + testEmail);
+      return successResponse(
+        res,
+        "Đã gửi email kiểm tra thành công tới " + testEmail,
+      );
     }
 
-    return successResponse(res, "Email configuration is valid", configTest);
+    return successResponse(res, "Cấu hình email hợp lệ", configTest);
   } catch (error) {
     next(error);
   }
@@ -182,11 +177,11 @@ exports.getEmailConfig = async (req, res, next) => {
     const emailConfigs = await SystemConfig.find({
       category: "email",
       isActive: true,
-      // Exclude template keys from SMTP config view
+      // Loại trừ các key template khỏi màn hình cấu hình SMTP
       key: { $not: /^email_template_/ },
     }).select("key value description");
 
-    return successResponse(res, "Get email config successfully", emailConfigs);
+    return successResponse(res, "Lấy cấu hình email thành công", emailConfigs);
   } catch (error) {
     next(error);
   }
@@ -211,7 +206,7 @@ exports.updateEmailConfig = async (req, res, next) => {
       if (config) results.push(config);
     }
 
-    return successResponse(res, "Email config updated successfully", results);
+    return successResponse(res, "Cập nhật cấu hình email thành công", results);
   } catch (error) {
     next(error);
   }
@@ -257,13 +252,17 @@ exports.getEmailTemplates = async (req, res, next) => {
         fields: meta.fields,
         default: defaultVal,
         db: dbVal,
-        // merged = default + DB override (same logic as getEmailTemplate())
+        // merged = default + phần ghi đè từ DB (cùng logic với getEmailTemplate())
         merged: dbVal ? { ...defaultVal, ...dbVal } : { ...defaultVal },
         isCustomized: !!dbVal,
       };
     });
 
-    return successResponse(res, "Get email templates successfully", templates);
+    return successResponse(
+      res,
+      "Lấy danh sách mẫu email thành công",
+      templates,
+    );
   } catch (error) {
     next(error);
   }
@@ -344,7 +343,7 @@ exports.updateEmailTemplate = async (req, res, next) => {
       { upsert: true, new: true },
     );
 
-    return successResponse(res, "Email template updated successfully", config);
+    return successResponse(res, "Cập nhật mẫu email thành công", config);
   } catch (error) {
     next(error);
   }
@@ -450,7 +449,7 @@ exports.getUserActivity = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helper: Metadata của từng template (fields, variables, labels)
+// Hàm hỗ trợ: Metadata của từng template (fields, variables, labels)
 // ─────────────────────────────────────────────────────────────────────────────
 function getTemplateMetadata() {
   return [

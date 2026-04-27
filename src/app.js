@@ -50,7 +50,7 @@ app.use(customSecurityHeaders);
 // 3. Cookie parser (cần cho CSRF)
 app.use(cookieParser());
 
-// 4. Express session (required for Passport)
+// 4. Express session (bắt buộc cho Passport)
 app.use(
   session({
     secret:
@@ -58,7 +58,7 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production", // HTTPS only in production
+      secure: process.env.NODE_ENV === "production", // Chỉ dùng HTTPS trong production
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
@@ -107,7 +107,7 @@ app.use(inputSanitization);
 // 13. Morgan logging (đặt trước rate limiter để log tất cả requests)
 app.use(morgan("dev"));
 
-// 14. CSRF token generator (chỉ cho GET requests)
+// 14. Bộ tạo CSRF token (chỉ cho yêu cầu GET)
 // Lưu ý: CSRF chỉ cần khi dùng cookie-based auth
 // Nếu dùng JWT trong header thì không cần
 if (process.env.USE_CSRF === "true") {
@@ -134,7 +134,7 @@ app.use("/api/contact", feedbackRoutes);
 app.use("/api/reputation", reputationRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 
-// Health check (không rate limit)
+// Kiểm tra sức khỏe dịch vụ (không áp dụng rate limit)
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "OK",
@@ -144,7 +144,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Security test endpoint (chỉ cho development)
+// Endpoint kiểm thử bảo mật (chỉ cho môi trường development)
 if (process.env.NODE_ENV !== "production") {
   app.get("/api/security-test", (req, res) => {
     res.json({

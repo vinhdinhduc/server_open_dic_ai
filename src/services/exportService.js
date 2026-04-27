@@ -98,7 +98,7 @@ exports.exportTermsToExcel = async (options = {}) => {
       formatDate(term.updatedAt),
     ]);
   } else {
-    // Single language export
+    // Xuất theo một ngôn ngữ
     const langLabel =
       language === "vi" ? "Tiếng Việt" : language === "en" ? "English" : "ລາວ";
 
@@ -133,12 +133,12 @@ exports.exportTermsToExcel = async (options = {}) => {
     ]);
   }
 
-  // Create worksheet
+  // Tạo worksheet
 
   const wsData = [headerRow, ...dataRows];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  // Set column widths
+  // Thiết lập độ rộng cột
   const colWidths = headerRow.map((header, i) => {
     // if (header.includes("Định nghĩa") || header.includes("Giải thích")) {
     //   return { wch: 50 };
@@ -162,7 +162,7 @@ exports.exportTermsToExcel = async (options = {}) => {
   });
   ws["!cols"] = colWidths;
 
-  // Create workbook
+  // Tạo workbook
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Thuật ngữ");
 
@@ -191,7 +191,7 @@ exports.exportTermsToExcel = async (options = {}) => {
   };
 };
 
-// Helper functions
+// Các hàm hỗ trợ
 function getPartOfSpeechLabel(pos) {
   const labels = {
     noun: "Danh từ",

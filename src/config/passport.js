@@ -47,7 +47,7 @@ passport.use(
 
           await user.save();
         } else {
-          // Create new user
+          // Tạo người dùng mới
           user = await User.create({
             googleId,
             email,

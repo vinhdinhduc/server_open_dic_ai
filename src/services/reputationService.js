@@ -513,7 +513,7 @@ exports.getLeaderboard = async (options = {}) => {
   };
 };
 
-// ==================== AI ACCESS CHECK ====================
+// ==================== KIỂM TRA QUYỀN AI ====================
 
 exports.checkAIAccess = async (userId, feature = "explanation") => {
   const summary = await getOrCreateSummary(userId);
@@ -754,7 +754,7 @@ exports.detectCrossAccountReports = async (reporterUserId, targetTermId) => {
   return recentReports >= 3;
 };
 
-// ==================== ADMIN ====================
+// ==================== QUẢN TRỊ ====================
 
 exports.adminAdjustPoints = async (
   adminId,

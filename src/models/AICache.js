@@ -31,7 +31,7 @@ const aiCacheSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Compound index for fast lookups and TTL
+// Chỉ mục ghép để tra cứu nhanh và TTL
 aiCacheSchema.index({ termId: 1, language: 1 }, { unique: true });
 aiCacheSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 

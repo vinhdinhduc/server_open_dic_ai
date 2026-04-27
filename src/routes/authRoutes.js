@@ -5,7 +5,6 @@ const { authenticate } = require("../middlewares/auth");
 const { validate } = require("../middlewares/validate");
 const { authValidators } = require("../validators");
 
-// Import rate limiters cho các endpoints quan trọng
 const {
   loginLimiter,
   registerLimiter,

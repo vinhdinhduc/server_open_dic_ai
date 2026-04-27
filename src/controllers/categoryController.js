@@ -126,7 +126,7 @@ exports.getModeratorCategories = async (req, res, next) => {
     let categoryIds;
 
     if (user.role === "admin") {
-      // Admin thấy tất cả
+      // Quản trị viên thấy tất cả
       const allCategories = await Category.find({}).lean();
       categoryIds = allCategories.map((c) => c._id);
     } else {

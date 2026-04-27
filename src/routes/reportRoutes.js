@@ -21,7 +21,7 @@ router.post(
   reportController.createReport,
 );
 
-// Lấy thống kê báo xấu - Moderator/Admin
+// Lấy thống kê báo xấu - Moderator/Quản trị viên
 router.get(
   "/stats",
   authenticate,
@@ -29,7 +29,7 @@ router.get(
   reportController.getReportStats,
 );
 
-// Lấy danh sách báo xấu - Moderator/Admin (chỉ trong danh mục được phép)
+// Lấy danh sách báo xấu - Moderator/Quản trị viên (chỉ trong danh mục được phép)
 router.get(
   "/",
   authenticate,
@@ -38,7 +38,7 @@ router.get(
   reportController.getReports,
 );
 
-// Lấy chi tiết báo xấu - Moderator/Admin
+// Lấy chi tiết báo xấu - Moderator/Quản trị viên
 router.get(
   "/:id",
   authenticate,
@@ -46,7 +46,7 @@ router.get(
   reportController.getReportById,
 );
 
-// Xử lý báo xấu (resolve/reject) - Moderator/Admin
+// Xử lý báo xấu (resolve/reject) - Moderator/Quản trị viên
 router.put(
   "/:id/resolve",
   authenticate,
@@ -56,7 +56,7 @@ router.put(
   reportController.resolveReport,
 );
 
-// Xóa mềm báo xấu - Moderator/Admin
+// Xóa mềm báo xấu - Moderator/Quản trị viên
 router.delete(
   "/:id",
   authenticate,
@@ -64,7 +64,7 @@ router.delete(
   reportController.deleteReport,
 );
 
-// Khôi phục báo xấu - Moderator/Admin
+// Khôi phục báo xấu - Moderator/Quản trị viên
 router.put(
   "/:id/restore",
   authenticate,
@@ -72,7 +72,7 @@ router.put(
   reportController.restoreReport,
 );
 
-// Làm rỗng thùng rác báo xấu - Moderator/Admin
+// Làm rỗng thùng rác báo xấu - Moderator/Quản trị viên
 router.delete(
   "/trash/empty",
   authenticate,

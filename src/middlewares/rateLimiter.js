@@ -5,31 +5,31 @@ const SystemConfig = require("../models/SystemConfig");
 let rateLimitConfig = {
   enabled: true,
   general: {
-    windowMs: 15 * 60 * 1000, // 15 phút
+    windowMs: 15 * 60 * 1000,
     max: 100,
   },
   api: {
-    windowMs: 60 * 1000, // 1 phút
+    windowMs: 60 * 1000,
     max: 30,
   },
   login: {
-    windowMs: 15 * 60 * 1000, // 15 phút
+    windowMs: 15 * 60 * 1000,
     max: 5,
   },
   register: {
-    windowMs: 60 * 60 * 1000, // 1 giờ
+    windowMs: 60 * 60 * 1000,
     max: 3,
   },
   passwordReset: {
-    windowMs: 60 * 60 * 1000, // 1 giờ
+    windowMs: 60 * 60 * 1000,
     max: 3,
   },
   contentCreation: {
-    windowMs: 60 * 1000, // 1 phút
+    windowMs: 60 * 1000,
     max: 10,
   },
   ai: {
-    windowMs: 60 * 1000, // 1 phút
+    windowMs: 60 * 1000,
     max: 5,
   },
 };
@@ -48,7 +48,6 @@ async function loadRateLimitConfig() {
       configs.forEach((config) => {
         const { key, value } = config;
 
-        // Update config cache
         if (key === "rate_limit_enabled") {
           rateLimitConfig.enabled = value;
         } else if (key === "rate_limit_window_ms") {
@@ -245,7 +244,7 @@ module.exports = {
   passwordResetLimiter,
   contentCreationLimiter,
   aiLimiter,
-  // Export helper functions
+  // Xuất các hàm hỗ trợ
   loadRateLimitConfig,
   getCurrentConfig,
 };

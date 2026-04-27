@@ -4,14 +4,12 @@ const feedbackController = require("../controllers/feedbackController");
 const { authenticate } = require("../middlewares/auth");
 const { isAdmin } = require("../middlewares/authorize");
 
-// Public endpoints
 router.post("/feedback", feedbackController.submitFeedback);
 router.post(
   "/moderator-application",
   feedbackController.submitModeratorApplication,
 );
 
-// Admin endpoints
 router.get("/feedback", authenticate, isAdmin, feedbackController.getFeedbacks);
 router.put(
   "/feedback/:id",

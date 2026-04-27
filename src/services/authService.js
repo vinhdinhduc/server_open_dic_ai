@@ -6,7 +6,7 @@ const { TOKEN_EXPIRY } = require("../utils/constants");
 
 const generateAccessToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_ACCESS_EXPIRE || "15m", // Short-lived access token
+    expiresIn: process.env.JWT_ACCESS_EXPIRE || "15m", // Access token có thời hạn ngắn
   });
 };
 
@@ -15,7 +15,7 @@ const generateRefreshToken = (userId) => {
     { id: userId },
     process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
     {
-      expiresIn: process.env.JWT_REFRESH_EXPIRE || "30d", // Long-lived refresh token
+      expiresIn: process.env.JWT_REFRESH_EXPIRE || "30d", // Refresh token có thời hạn dài
     },
   );
 };
@@ -36,11 +36,11 @@ exports.register = async ({ fullName, email, password }) => {
     fullName,
     email,
     password,
-    status: "inactive", // Chuyển sang active để user có thể sử dụng ngay
+    status: "inactive",
     emailVerified: false,
   });
 
-  //Send verification email (gửi email chào mừng)
+  // Gửi email xác thực
 
   const verificationToken = crypto.randomBytes(32).toString("hex");
   const hashedToken = crypto
@@ -60,7 +60,6 @@ exports.register = async ({ fullName, email, password }) => {
     verificationToken,
   );
 
-  // Không tạo token, user phải verify email trước khi đăng nhập
   return {
     user: {
       id: newUser._id,
@@ -76,7 +75,7 @@ exports.register = async ({ fullName, email, password }) => {
 // Đăng nhập
 
 exports.login = async (email, password, rememberMe) => {
-  //Check user tồn tại
+  // Kiểm tra người dùng có tồn tại
   const user = await User.findOne({ email }).select("+password");
   if (!user) {
     const error = new Error("Email hoặc mật khẩu không đúng");
@@ -105,11 +104,11 @@ exports.login = async (email, password, rememberMe) => {
     throw error;
   }
 
-  // Generate tokens
+  // Tạo token
   const accessToken = generateAccessToken(user._id);
   const refreshToken = generateRefreshToken(user._id);
 
-  // Hash and save refresh token
+  // Băm và lưu refresh token
   const hashedRefreshToken = crypto
     .createHash("sha256")
     .update(refreshToken)
@@ -136,7 +135,7 @@ exports.login = async (email, password, rememberMe) => {
     refreshToken,
   };
 };
-//Update profile
+// Cập nhật hồ sơ
 
 exports.updateProfile = async (userId, updates) => {
   const allowedUpdates = [
@@ -172,7 +171,7 @@ exports.updateProfile = async (userId, updates) => {
   };
 };
 
-//Change password
+// Đổi mật khẩu
 
 exports.changePassword = async (userId, currentPassword, newPassword) => {
   // kiểm tra user tồn tại
@@ -222,19 +221,17 @@ exports.refreshAccessToken = async (refreshToken) => {
   }
 
   try {
-    // Verify refresh token
+    // Xác minh refresh token
     const decoded = jwt.verify(
       refreshToken,
       process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
     );
 
-    // Hash token to compare with database
     const hashedToken = crypto
       .createHash("sha256")
       .update(refreshToken)
       .digest("hex");
 
-    // Find user with valid refresh token
     const user = await User.findOne({
       _id: decoded.id,
       refreshToken: hashedToken,
@@ -247,14 +244,14 @@ exports.refreshAccessToken = async (refreshToken) => {
       throw error;
     }
 
-    // Check if account is still active
+    // Kiểm tra tài khoản còn hoạt động không
     if (user.status === "banned" || user.status === "inactive") {
       const error = new Error("Tài khoản không còn hoạt động");
       error.statusCode = 403;
       throw error;
     }
 
-    // Generate new access token
+    // Tạo access token mới
     const newAccessToken = generateAccessToken(user._id);
 
     return {
@@ -427,11 +424,11 @@ exports.googleLogin = async (googleData) => {
     });
   }
 
-  // Generate tokens
+  // Tạo token
   const accessToken = generateAccessToken(user._id);
   const refreshToken = generateRefreshToken(user._id);
 
-  // Hash and save refresh token
+  // Băm và lưu refresh token
   const hashedRefreshToken = crypto
     .createHash("sha256")
     .update(refreshToken)
@@ -543,11 +540,11 @@ exports.generateTokensForUser = async (userId) => {
     throw error;
   }
 
-  // Generate tokens
+  // Tạo token
   const accessToken = generateAccessToken(user._id);
   const refreshToken = generateRefreshToken(user._id);
 
-  // Hash and save refresh token
+  // Băm và lưu refresh token
   const hashedRefreshToken = crypto
     .createHash("sha256")
     .update(refreshToken)

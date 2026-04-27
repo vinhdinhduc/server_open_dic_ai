@@ -42,13 +42,13 @@ exports.searchTerms = async (query, options = {}) => {
     }
   }
 
-  // For relevance sort we fetch extra results, score them, then paginate in-memory
+  // Với sắp xếp theo độ liên quan, lấy thêm kết quả, chấm điểm rồi phân trang trong bộ nhớ
   if (sortBy === "relevance" && query && query.trim()) {
     const trimmed = query.trim();
     const lowerQ = trimmed.toLowerCase();
     const prefixRegex = new RegExp(`^${escapeRegex(trimmed)}`, "i");
 
-    // Fetch more results for scoring (up to 200)
+    // Lấy thêm kết quả để chấm điểm (tối đa 200)
     const allTerms = await Term.find(searchQuery)
       .populate("category", "name slug")
       .populate("createdBy", "fullName")
@@ -248,7 +248,7 @@ exports.getTermsForModerator = async (options = {}) => {
     const validIds = categoryIds
       .filter((id) => mongoose.Types.ObjectId.isValid(id))
       .map((id) => new mongoose.Types.ObjectId(id));
-    // If user further filters to a specific category, intersect with assigned list
+    // Nếu người dùng lọc theo danh mục cụ thể, lấy giao với danh mục được phân quyền
     if (
       category &&
       category !== "all" &&
@@ -426,7 +426,7 @@ exports.createTerm = async (termData, userId) => {
 
   return newTerm;
 };
-//Update term
+// Cập nhật thuật ngữ
 
 exports.updateTerm = async (termId, termData, userId) => {
   const term = await Term.findById(termId);

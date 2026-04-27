@@ -11,7 +11,7 @@ const {
 } = require("../middlewares/validate");
 const { termValidators } = require("../validators");
 
-// Configure multer for file uploads
+// Cấu hình multer cho tải tệp lên
 const upload = multer({
   dest: path.join(__dirname, "../../uploads/"),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB

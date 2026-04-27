@@ -48,7 +48,7 @@ const EMAIL_TEMPLATE_DEFAULTS = {
   comment_moderated: {
     subject: "Kết quả kiểm duyệt bình luận",
     title: "Kết quả kiểm duyệt bình luận",
-    accentColor: "#16a34a", // dynamic per status, used as approved color
+    accentColor: "#16a34a", // thay đổi theo trạng thái, dùng làm màu khi được duyệt
     intro: "Bình luận của bạn đã được kiểm duyệt.",
   },
   report_resolved: {
@@ -74,17 +74,13 @@ const EMAIL_TEMPLATE_DEFAULTS = {
   },
 };
 
-// Export defaults cho controller dùng để trả về danh sách template
 exports.EMAIL_TEMPLATE_DEFAULTS = EMAIL_TEMPLATE_DEFAULTS;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Lấy template: ưu tiên DB, fallback sang default trong code
-// ─────────────────────────────────────────────────────────────────────────────
 const getEmailTemplate = async (key) => {
   try {
     const dbValue = await SystemConfig.getValue(`email_template_${key}`, null);
     if (dbValue && typeof dbValue === "object") {
-      // Merge: default làm nền, DB ghi đè từng field
+      // Gộp: dùng default làm nền, DB ghi đè từng trường
       return { ...EMAIL_TEMPLATE_DEFAULTS[key], ...dbValue };
     }
   } catch (error) {
@@ -93,9 +89,6 @@ const getEmailTemplate = async (key) => {
   return { ...(EMAIL_TEMPLATE_DEFAULTS[key] || {}) };
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SMTP / Transporter
-// ─────────────────────────────────────────────────────────────────────────────
 const getEmailTransporter = async () => {
   const emailHost = await SystemConfig.getValue("email_host", "smtp.gmail.com");
   const emailPort = await SystemConfig.getValue("email_port", 587);
@@ -137,9 +130,6 @@ const getMailConfig = async () => {
   return { transporter, from: `${emailFromName} <${emailFrom}>` };
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HTML Builders (dùng chung)
-// ─────────────────────────────────────────────────────────────────────────────
 const buildEmailHtml = (title, accentColor, bodyHtml) => `
 <!DOCTYPE html>
 <html lang="vi">
@@ -222,9 +212,6 @@ const signOff = () =>
     Trân trọng,<br/><strong>Đội ngũ UTB OpenDict</strong>
   </p>`;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
 const isEmailNotificationEnabled = async (userEmail, type) => {
   try {
     const User = require("../models/User");
@@ -238,13 +225,8 @@ const isEmailNotificationEnabled = async (userEmail, type) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// EMAIL SENDERS — mỗi hàm đều gọi getEmailTemplate() để lấy config
-// ─────────────────────────────────────────────────────────────────────────────
+// Gửi email xác thực tài khoản khi đăng ký.
 
-/**
- * Gửi email xác thực tài khoản khi đăng ký.
- */
 exports.sendVerificationEmail = async (
   userEmail,
   userName,
@@ -281,10 +263,8 @@ exports.sendVerificationEmail = async (
     throw error;
   }
 };
+// Gửi email chào mừng sau khi xác thực thành công.
 
-/**
- * Gửi email chào mừng sau khi xác thực thành công.
- */
 exports.sendWelcomeEmail = async (userEmail, userName) => {
   try {
     const { transporter, from } = await getMailConfig();
@@ -322,13 +302,11 @@ exports.sendWelcomeEmail = async (userEmail, userName) => {
     console.log(`[Email] Welcome sent → ${userEmail}`);
   } catch (error) {
     console.error("[Email] sendWelcomeEmail error:", error);
-    // Non-critical — do not rethrow
   }
 };
 
-/**
- * Gửi email đặt lại mật khẩu.
- */
+// Gửi email đặt lại mật khẩu.
+
 exports.sendPasswordResetEmail = async (userEmail, userName, resetUrl) => {
   try {
     const { transporter, from } = await getMailConfig();
@@ -363,9 +341,8 @@ exports.sendPasswordResetEmail = async (userEmail, userName, resetUrl) => {
   }
 };
 
-/**
- * Gửi email thông báo đóng góp được phê duyệt.
- */
+// Gửi email thông báo đóng góp được phê duyệt.
+
 exports.sendContributionApprovedEmail = async (
   userEmail,
   userName,
@@ -410,9 +387,8 @@ exports.sendContributionApprovedEmail = async (
   }
 };
 
-/**
- * Gửi email thông báo đóng góp bị từ chối.
- */
+// Gửi email thông báo đóng góp bị từ chối.
+
 exports.sendContributionRejectedEmail = async (
   userEmail,
   userName,
@@ -457,9 +433,8 @@ exports.sendContributionRejectedEmail = async (
   }
 };
 
-/**
- * Gửi thông báo tới admin / moderator khi có đóng góp mới.
- */
+//Gửi thông báo tới admin / moderator khi có đóng góp mới.
+
 exports.sendNewContributionNotificationToAdmins = async (
   contributionData,
   contributor,
@@ -531,9 +506,8 @@ exports.sendNewContributionNotificationToAdmins = async (
   }
 };
 
-/**
- * Gửi thông báo tới admin / moderator khi có báo cáo mới.
- */
+// Gửi thông báo tới admin / moderator khi có báo cáo mới.
+
 exports.sendNewReportNotificationToAdmins = async (
   reportData,
   reporter,
@@ -597,9 +571,7 @@ exports.sendNewReportNotificationToAdmins = async (
   }
 };
 
-/**
- * Gửi email kết quả kiểm duyệt bình luận.
- */
+// Gửi email kết quả kiểm duyệt bình luận.
 exports.sendCommentModeratedEmail = async (
   userEmail,
   userName,
@@ -611,7 +583,6 @@ exports.sendCommentModeratedEmail = async (
     const tmpl = await getEmailTemplate("comment_moderated");
 
     const isApproved = commentData.status === "approved";
-    // Màu accent: nếu DB không override thì dùng logic theo trạng thái
     const accentColor = isApproved ? tmpl.accentColor || "#16a34a" : "#f97316";
     const statusLabel = isApproved ? "được duyệt" : "bị từ chối";
     const boxBg = isApproved ? "#f0fdf4" : "#fff7ed";
@@ -653,9 +624,8 @@ exports.sendCommentModeratedEmail = async (
   }
 };
 
-/**
- * Gửi email kết quả xử lý báo cáo cho người báo cáo.
- */
+// Gửi email kết quả xử lý báo cáo cho người báo cáo.
+
 exports.sendReportResolvedEmail = async (userEmail, userName, reportData) => {
   try {
     if (!(await isEmailNotificationEnabled(userEmail, "moderation"))) return;

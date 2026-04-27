@@ -3,8 +3,6 @@ const ModeratorApplication = require("../models/ModeratorApplication");
 const User = require("../models/User");
 const { successResponse, errorResponse } = require("../utils/response");
 
-// === Public endpoints ===
-
 exports.submitFeedback = async (req, res) => {
   try {
     const { name, email, type, subject, message } = req.body;
@@ -41,7 +39,6 @@ exports.submitModeratorApplication = async (req, res) => {
       return errorResponse(res, "Vui lòng điền đầy đủ thông tin", 400);
     }
 
-    // Check duplicate pending application
     const existing = await ModeratorApplication.findOne({
       email,
       status: "pending",
@@ -68,8 +65,6 @@ exports.submitModeratorApplication = async (req, res) => {
     return errorResponse(res, "Không thể gửi đăng ký", 500);
   }
 };
-
-// === Admin endpoints ===
 
 exports.getFeedbacks = async (req, res) => {
   try {
@@ -169,7 +164,7 @@ exports.reviewModeratorApplication = async (req, res) => {
     application.reviewedAt = new Date();
     await application.save();
 
-    // If approved, update user role to moderator
+    // Nếu được duyệt thì cập nhật vai trò người dùng thành moderator
     if (status === "approved") {
       const user = await User.findOne({ email: application.email });
       if (user && user.role === "user") {

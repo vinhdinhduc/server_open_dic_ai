@@ -315,11 +315,11 @@ const customSecurityHeaders = (req, res, next) => {
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
 
-  // Server information hiding
+  // Ẩn thông tin máy chủ
   res.removeHeader("X-Powered-By");
   res.removeHeader("Server");
 
-  // Additional CORS security
+  // Bảo mật CORS bổ sung
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("X-XSS-Protection", "1; mode=block");

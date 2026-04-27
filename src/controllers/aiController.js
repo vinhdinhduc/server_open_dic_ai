@@ -3,10 +3,6 @@ const reputationService = require("../services/reputationService");
 const { REPUTATION } = require("../utils/constants");
 const { successResponse, errorResponse } = require("../utils/response");
 
-/**
- * Controller xử lý các yêu cầu AI
- */
-
 const ensureExplanationAIAccess = async (userId) => {
   const access = await reputationService.checkAIAccess(userId, "explanation");
   if (access.allowed) {
@@ -25,7 +21,7 @@ const ensureExplanationAIAccess = async (userId) => {
 };
 
 const ensureSpecificTermExplanationAccess = async (userId, userRole) => {
-  // Admin và moderator luôn có quyền truy cập AI không giới hạn
+  // Quản trị viên và moderator luôn có quyền truy cập AI không giới hạn
   if (userRole === "admin" || userRole === "moderator") {
     return null;
   }
@@ -271,7 +267,7 @@ const askAboutSpecificTerm = async (req, res) => {
     const Term = require("../models/Term");
     const AICache = require("../models/AICache");
 
-    // Check cache first (only when no custom question)
+    // Kiểm tra cache trước (chỉ khi không có câu hỏi tùy chỉnh)
     if (!question) {
       const cached = await AICache.findOne({ termId, language }).lean();
       if (cached && cached.response) {
@@ -316,7 +312,7 @@ const askAboutSpecificTerm = async (req, res) => {
     );
 
     if (result.success) {
-      // Save to cache (only standard term queries, not custom questions)
+      // Lưu vào cache (chỉ với truy vấn thuật ngữ chuẩn, không áp dụng câu hỏi tùy chỉnh)
       if (!question && result.data) {
         const cacheData = {
           definition: result.data.definition,

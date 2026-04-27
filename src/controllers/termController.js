@@ -16,9 +16,6 @@ exports.searchTerms = async (req, res, next) => {
       limit,
     });
 
-    // Note: Search history is now saved from client-side via POST /api/terms/search-history
-    // to support authenticated users when search is called from server-side rendering
-
     return successResponse(res, "Tìm kiếm thuật ngữ thành công", result);
   } catch (error) {
     next(error);
@@ -64,7 +61,6 @@ exports.createTerm = async (req, res, next) => {
   try {
     const termData = req.body;
 
-    // Convert tags object to array if needed
     if (
       termData.tags &&
       typeof termData.tags === "object" &&
@@ -93,7 +89,6 @@ exports.updateTerm = async (req, res, next) => {
       termData.status = "rejected";
     }
 
-    // Convert tags object to array if needed
     if (
       termData.tags &&
       typeof termData.tags === "object" &&
@@ -172,10 +167,8 @@ exports.getTermsForModerator = async (req, res, next) => {
       req.query;
     const { page, limit } = req.pagination;
 
-    // Admin sees all categories; moderator only sees assigned categories
     let categoryIds = [];
     if (user.role === "admin") {
-      // No restriction for admin
     } else {
       categoryIds = user.moderationPermissions?.categories?.map(String) || [];
     }
@@ -197,7 +190,7 @@ exports.getTermsForModerator = async (req, res, next) => {
   }
 };
 
-// Admin: Lấy tất cả terms với stats
+// Quản trị: Lấy tất cả thuật ngữ kèm thống kê
 exports.getTermsForAdmin = async (req, res, next) => {
   try {
     const { category, status, sortBy } = req.query;
@@ -215,7 +208,7 @@ exports.getTermsForAdmin = async (req, res, next) => {
   }
 };
 
-// Admin: Lấy thống kê thuật ngữ
+// Quản trị viên: Lấy thống kê thuật ngữ
 exports.getTermStats = async (req, res, next) => {
   try {
     const stats = await termService.getTermStats();
@@ -225,7 +218,6 @@ exports.getTermStats = async (req, res, next) => {
   }
 };
 
-// Export terms to Excel
 exports.exportTerms = async (req, res, next) => {
   try {
     const { category, status, search, language } = req.query;
@@ -237,7 +229,6 @@ exports.exportTerms = async (req, res, next) => {
       language,
     });
 
-    // Set headers for file download
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -248,14 +239,13 @@ exports.exportTerms = async (req, res, next) => {
     );
     res.setHeader("X-Total-Records", result.totalRecords);
 
-    // Send buffer
     return res.send(result.buffer);
   } catch (error) {
     next(error);
   }
 };
 
-// Import terms from Excel/CSV
+// Import thuật ngữ từ Excel/CSV
 exports.importTerms = async (req, res, next) => {
   try {
     if (!req.file) {
@@ -277,7 +267,7 @@ exports.importTerms = async (req, res, next) => {
   }
 };
 
-// Download Excel template for import
+// Tải mẫu Excel để import
 exports.downloadImportTemplate = async (req, res, next) => {
   try {
     const XLSX = require("xlsx");

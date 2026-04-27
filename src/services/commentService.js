@@ -10,13 +10,6 @@ const {
   NOTIFICATION_TYPES,
 } = require("../utils/constants");
 
-/**
- * Lấy tất cả bình luận cho admin/moderator
- * Moderator chỉ xem bình luận trong danh mục được phân công
- * @param {Object} options - Các tùy chọn lọc và phân trang
- * @param {Object} user - User hiện tại (để check quyền moderator)
- * @returns {Object} Danh sách bình luận và thông tin phân trang
- */
 exports.getAllComments = async (options = {}, user = null) => {
   const { page = 1, limit = 20, status, search } = options;
   const skip = (page - 1) * limit;
@@ -97,7 +90,7 @@ exports.getAllComments = async (options = {}, user = null) => {
 
 exports.createComment = async (commentData, userId) => {
   const { termId, content, parentCommentId } = commentData;
-  //Check term có tồn tại không
+  // Kiểm tra thuật ngữ có tồn tại không
   const term = await Term.findById(termId).populate("category", "name");
   if (!term) {
     const error = new Error("Thuật ngữ không tồn tại");
@@ -236,7 +229,7 @@ exports.deleteComment = async (commentId, userId, userRole) => {
     throw error;
   }
 
-  //Chỉ author hoặc admin
+  // Chỉ tác giả hoặc admin
   const isOwn = comment.author.toString() === userId.toString();
   const isModerator = ["admin", "moderator"].includes(userRole);
 

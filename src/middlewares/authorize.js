@@ -57,7 +57,7 @@ exports.checkModeratorPermission = (permissionType) => {
       return errorResponse(res, "Vui lòng đăng nhập để tiếp tục", 401);
     }
 
-    // Admin có toàn quyền
+    // Quản trị viên có toàn quyền
     if (req.user.role === USER_ROLES.ADMIN) {
       return next();
     }
@@ -99,7 +99,7 @@ exports.checkModeratorPermission = (permissionType) => {
  */
 exports.checkCategoryAccess = (getCategoryFromResource) => {
   return async (req, res, next) => {
-    // Admin có toàn quyền
+    // Quản trị viên có toàn quyền
     if (req.user.role === USER_ROLES.ADMIN) {
       return next();
     }
@@ -132,7 +132,7 @@ exports.checkCategoryAccess = (getCategoryFromResource) => {
   };
 };
 
-// Check quyền sở huữu tài nguyên
+// Kiểm tra quyền sở hữu tài nguyên
 exports.isOwner = (resourceUserIdField = "userId") => {
   return (req, res, next) => {
     if (!req.user) {
@@ -142,7 +142,7 @@ exports.isOwner = (resourceUserIdField = "userId") => {
     if (req.user.role === USER_ROLES.ADMIN) {
       return next();
     }
-    // Check sở hữu
+    // Kiểm tra quyền sở hữu
 
     const resourceUserId =
       req.resource?.[resourceUserIdField || req.params[resourceUserIdField]];

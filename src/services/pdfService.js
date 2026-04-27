@@ -40,7 +40,7 @@ const italicFont = pickFirstExisting(
 const FONTS = {
   regular: regularFont,
   bold: boldFont,
-  // Do not fallback to Helvetica-Oblique in production because it often breaks Vietnamese diacritics.
+  // Không fallback sang Helvetica-Oblique ở production vì thường làm lỗi dấu tiếng Việt.
   italic: italicFont,
   serif: pickFirstExisting(
     [

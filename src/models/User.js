@@ -55,7 +55,7 @@ const userSchema = new mongoose.Schema(
       system: { type: Boolean, default: true },
     },
     lastLogin: Date,
-    // Moderation permissions for moderators
+    // Quyền kiểm duyệt dành cho moderator
     moderationPermissions: {
       categories: [
         {
@@ -70,10 +70,10 @@ const userSchema = new mongoose.Schema(
         },
       ],
     },
-    // Forgot password
+    // Quên mật khẩu
     resetPasswordToken: String,
     resetPasswordExpires: Date,
-    // Email verification
+    // Xác thực email
     emailVerificationToken: String,
     emailVerificationExpires: Date,
     // Refresh Token
@@ -91,7 +91,7 @@ const userSchema = new mongoose.Schema(
       enum: ["local", "google"],
       default: "local",
     },
-    // Public profile view counter
+    // Bộ đếm lượt xem hồ sơ công khai
     profileViewCount: {
       type: Number,
       default: 0,
@@ -101,7 +101,7 @@ const userSchema = new mongoose.Schema(
 );
 userSchema.index({ role: 1 });
 
-// Hash password before saving
+// Băm mật khẩu trước khi lưu
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 12);

@@ -25,7 +25,7 @@ exports.createUser = async (userData) => {
     role: role || "user",
     status: status || "active",
     preferredLanguage: preferredLanguage || "vi",
-    emailVerified: true, // Admin tạo thì mặc định đã xác thực
+    emailVerified: true, // Quản trị viên tạo thì mặc định đã xác thực
   });
 
   await user.save();
@@ -99,7 +99,7 @@ exports.updateUser = async (userId, updateData) => {
     }
   });
 
-  // Fix moderationPermissions if it exists - ensure arrays are proper arrays
+  // Chuẩn hóa moderationPermissions nếu tồn tại - đảm bảo các trường mảng đúng kiểu
   if (filteredData.moderationPermissions) {
     const mp = filteredData.moderationPermissions;
 
@@ -112,7 +112,7 @@ exports.updateUser = async (userId, updateData) => {
           mp.permissions = [];
         }
       }
-      // Convert object with numeric keys to array
+      // Chuyển object có key dạng số thành mảng
       if (
         mp.permissions &&
         typeof mp.permissions === "object" &&
@@ -135,7 +135,7 @@ exports.updateUser = async (userId, updateData) => {
           mp.categories = [];
         }
       }
-      // Convert object with numeric keys to array
+      // Chuyển object có key dạng số thành mảng
       if (
         mp.categories &&
         typeof mp.categories === "object" &&
@@ -275,13 +275,13 @@ exports.resendVerificationEmail = async (userId) => {
     throw error;
   }
 
-  // Generate verification token
+  // Tạo token xác minh
   const verificationToken = crypto.randomBytes(32).toString("hex");
   user.emailVerificationToken = verificationToken;
   user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
   await user.save();
 
-  // Send verification email
+  // Gửi email xác thực
   await emailService.sendVerificationEmail(user.email, verificationToken);
 
   return { message: "Email xác thực đã được gửi lại" };

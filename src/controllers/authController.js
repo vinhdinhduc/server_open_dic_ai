@@ -189,7 +189,7 @@ exports.googleCallback = async (req, res, next) => {
       );
     }
 
-    // Generate tokens
+    // Tạo token
     const result = await authService.generateTokensForUser(user._id);
 
     // Redirect về frontend với tokens trong URL query
