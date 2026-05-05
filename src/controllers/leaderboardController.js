@@ -49,12 +49,14 @@ exports.getUsersLeaderboard = async (req, res, next) => {
   try {
     const { page, limit } = req.pagination || { page: 1, limit: 10 };
     const type = req.query.type || "most_liked";
+    const from = req.query.from;
+    const to = req.query.to;
 
     let result;
     if (type === "most_attractive") {
-      result = await leaderboardService.getMostAttractiveUsers({ page, limit });
+      result = await leaderboardService.getMostAttractiveUsers({ page, limit, from, to });
     } else {
-      result = await leaderboardService.getMostLikedUsers({ page, limit });
+      result = await leaderboardService.getMostLikedUsers({ page, limit, from, to });
     }
 
     return successResponse(

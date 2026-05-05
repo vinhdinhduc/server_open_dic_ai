@@ -409,9 +409,21 @@ exports.getMostViewedTerms = async ({
 /**
  * GET users with most total favorites on their terms.
  */
-exports.getMostLikedUsers = async ({ page = 1, limit = 10 }) => {
+exports.getMostLikedUsers = async ({ page = 1, limit = 10, from = null, to = null }) => {
   const pagination = normalizePagination(page, limit);
   const { skip } = pagination;
+
+  // build favorite lookup pipeline with optional date filtering
+  const favoriteLookupPipeline = [];
+  const favMatch = { $expr: { $eq: ["$term", "$$termId"] } };
+  if (from || to) {
+    const dateCond = {};
+    if (from) dateCond.$gte = new Date(from);
+    if (to) dateCond.$lte = new Date(to);
+    favMatch.createdAt = dateCond;
+  }
+  favoriteLookupPipeline.push({ $match: favMatch });
+  favoriteLookupPipeline.push({ $count: "total" });
 
   const basePipeline = [
     {
@@ -425,14 +437,7 @@ exports.getMostLikedUsers = async ({ page = 1, limit = 10 }) => {
       $lookup: {
         from: "favorites",
         let: { termId: "$_id" },
-        pipeline: [
-          {
-            $match: {
-              $expr: { $eq: ["$term", "$$termId"] },
-            },
-          },
-          { $count: "total" },
-        ],
+        pipeline: favoriteLookupPipeline,
         as: "favoriteStats",
       },
     },
@@ -503,7 +508,7 @@ exports.getMostLikedUsers = async ({ page = 1, limit = 10 }) => {
 /**
  * GET users with most profile views.
  */
-exports.getMostAttractiveUsers = async ({ page = 1, limit = 10 }) => {
+exports.getMostAttractiveUsers = async ({ page = 1, limit = 10, from = null, to = null }) => {
   const pagination = normalizePagination(page, limit);
   const { skip } = pagination;
 
