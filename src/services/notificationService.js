@@ -23,7 +23,6 @@ exports.getNotifications = async (userId, options = {}) => {
     Notification.countDocuments(query),
     Notification.countDocuments({ recipient: userId, isRead: false }),
   ]);
-  console.log("check", notifications);
 
   return {
     notifications,

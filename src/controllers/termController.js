@@ -2,6 +2,7 @@ const { successResponse, errorResponse } = require("../utils/response");
 const termService = require("../services/termService");
 const exportService = require("../services/exportService");
 const importService = require("../services/importService");
+const { logAudit, ACTIONS } = require("../services/auditLogService");
 
 exports.searchTerms = async (req, res, next) => {
   try {
@@ -99,6 +100,30 @@ exports.updateTerm = async (req, res, next) => {
 
     const userId = req.user._id;
     const updatedTerm = await termService.updateTerm(id, termData, userId);
+    // Fire-and-forget audit log for approval
+    if (termData.status === "approved") {
+      try {
+        logAudit({
+          action: ACTIONS.APPROVE_TERM,
+          actor: {
+            userId: req.user?._id,
+            email: req.user?.email,
+            role: req.user?.role,
+            ip: req.ip,
+            userAgent: req.get("User-Agent"),
+          },
+          target: {
+            resourceType: "term",
+            resourceId: updatedTerm?._id || id,
+            resourceName: updatedTerm?.name || updatedTerm?.term || null,
+          },
+          diff: { status: { before: "pending", after: "approved" } },
+          reason: req.body.moderatorNote || null,
+        });
+      } catch (e) {
+        /* ignore */
+      }
+    }
     return successResponse(res, "Cập nhật thuật ngữ thành công", updatedTerm);
   } catch (error) {
     next(error);
@@ -109,6 +134,27 @@ exports.deleteTerm = async (req, res, next) => {
     const { id } = req.params;
 
     const result = await termService.deleteTerm(id, req.user?._id || null);
+    // Fire-and-forget audit log for deletion
+    try {
+      logAudit({
+        action: ACTIONS.DELETE_TERM,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "term",
+          resourceId: id,
+          resourceName: result?.name || result?.term || null,
+        },
+        diff: null,
+      });
+    } catch (e) {
+      /* ignore */
+    }
     return successResponse(res, "Xoá thuật ngữ thành công ", result);
   } catch (error) {
     next(error);

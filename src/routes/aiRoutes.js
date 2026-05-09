@@ -55,4 +55,18 @@ router.post("/test", auth.authenticate, isAdmin, aiController.testConnection);
 // @access  Riêng tư (chỉ Admin)
 router.get("/usage", auth.authenticate, isAdmin, aiController.getAPIUsage);
 
+// @route   POST /api/ai/session
+// @desc    Initialize chat session
+// @access  Riêng tư
+router.post("/session", auth.authenticate, aiController.initializeChatSession);
+
+// @route   GET /api/ai/session/:sessionId
+// @desc    Get chat session information
+// @access  Riêng tư
+router.get(
+  "/session/:sessionId",
+  auth.authenticate,
+  aiController.getSessionInfo,
+);
+
 module.exports = router;

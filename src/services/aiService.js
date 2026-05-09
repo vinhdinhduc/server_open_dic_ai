@@ -2,6 +2,7 @@ const SystemConfig = require("../models/SystemConfig");
 const AIUsageDaily = require("../models/AIUsageDaily");
 const notificationService = require("./notificationService");
 const termService = require("./termService");
+const knowledgeBaseService = require("./knowledgeBaseService");
 const { NOTIFICATION_TYPES } = require("../utils/constants");
 
 const SUPPORTED_LANGUAGES = new Set(["vi", "en", "lo"]);
@@ -158,6 +159,8 @@ PHẠM VI BẮT BUỘC:
 
 TRI THỨC HỆ THỐNG UTB OpenDict:
 - Nền tảng từ điển thuật ngữ đa ngôn ngữ (Việt - Anh - Lào).
+- Có KHOẢNG KIẾN THỨC đầy đủ được xây dựng từ dữ liệu từ vựng hiện có (các danh mục, lĩnh vực, ví dụ, mẫu định nghĩa).
+- Học liên tục từ các thuật ngữ đã được xác thực trong hệ thống.
 - Chức năng chính: tra cứu thuật ngữ, đăng ký/đăng nhập, đóng góp thuật ngữ, duyệt và quản lý thuật ngữ.
 - Hướng dẫn sử dụng:
   + Đăng ký: vào trang register, điền thông tin, xác thực tài khoản.
@@ -166,10 +169,11 @@ TRI THỨC HỆ THỐNG UTB OpenDict:
   + Chỉnh sửa/đóng góp: vào trang chi tiết thuật ngữ để gợi ý chỉnh sửa hoặc gửi đóng góp mới.
 
 NĂNG LỰC AI CHO THUẬT NGỮ:
-- Nhận diện thuật ngữ.
+- Nhận diện thuật ngữ dựa trên kho kiến thức từ vựng.
 - Phân loại lĩnh vực (CNTT, Toán, Y học, ...).
 - Dịch thuật ngữ giữa Anh - Việt - Lào.
-- Gợi ý từ đồng nghĩa hoặc liên quan.
+- Gợi ý từ đồng nghĩa hoặc liên quan từ kho từ vựng.
+- Học hỏi từ các mẫu định nghĩa và ví dụ đã có.
 
 FORMAT ĐẦU RA:
 - KHÔNG bắt buộc JSON.
@@ -186,6 +190,8 @@ REQUIRED SCOPE:
 
 UTB OpenDict KNOWLEDGE:
 - Multilingual terminology dictionary platform (Vietnamese, English, Lao).
+- Equipped with a KNOWLEDGE BASE built from existing vocabulary data (categories, fields, examples, definition patterns).
+- Continuously learns from verified terms in the system.
 - Main features: term lookup, register/login, term contribution, term moderation/management.
 - Usage guides:
   + Register: open register page, submit account info.
@@ -194,10 +200,11 @@ UTB OpenDict KNOWLEDGE:
   + Edit/contribute: open term detail, suggest edits or submit new contribution.
 
 AI TERM CAPABILITIES:
-- Term recognition.
-- Domain classification.
+- Term recognition based on vocabulary knowledge base.
+- Domain classification (IT, Math, Medicine, etc.).
 - EN-VI-LO translation.
-- Synonym and related-term suggestions.
+- Suggest synonym and related-term suggestions from the vocabulary base.
+- Learn from existing definition and example patterns.
 
 OUTPUT FORMAT:
 - Do NOT force JSON.
@@ -214,17 +221,15 @@ ${pageGuide ? `CURRENT PAGE CONTEXT: ${pageGuide}` : ""}`,
 
 ຄວາມຮູ້ກ່ຽວກັບ UTB OpenDict:
 - ລະບົບວັດຈະນານຸກົມຫຼາຍພາສາ (VI-EN-LO).
+- ມີ KNOWLEDGE BASE ທີ່ສ້າງຈາກຂໍ້ມູນຄຳສັບທີ່ມີຢູ່.
+- ຮຽນຮູ້ຈາກຄຳສັບທີ່ຮັບຮອງແລ້ວໃນລະບົບ.
 - ຟັງຊັນຫຼັກ: ຄົ້ນຫາຄຳສັບ, ລົງທະບຽນ/ເຂົ້າລະບົບ, ສົ່ງຄຳສັບ, ກວດອະນຸມັດ/ຈັດການ.
 
 ຄວາມສາມາດ AI ດ້ານຄຳສັບ:
-- ຈຳແນກຄຳສັບ.
+- ລະບຸຄຳສັບຈາກ knowledge base.
 - ຈັດປະເພດສາຂາ.
-- ແປຄຳສັບ EN-VI-LO.
-- ແນະນຳຄຳຄ້າຍຄື ຫຼື ຄຳທີ່ກ່ຽວຂ້ອງ.
-
-ຮູບແບບຄຳຕອບ:
-- ບໍ່ຕ້ອງ JSON.
-- ໃຊ້ຮູບແບບທີ່ຍືດຫຍຸ່ນ: ຂໍ້ຄວາມສັ້ນ, bullet list, ຫຼື ຂໍ້ແນະນຳ.
+- ແປ EN-VI-LO.
+- ແນະນຳຄຳສັບທີ່ກ່ຽວຂ້ອງ.
 
 ${pageGuide ? `ບໍລິບົດໜ້າປັດຈຸບັນ: ${pageGuide}` : ""}`,
   };
@@ -533,7 +538,7 @@ const callGrokAPI = async (prompt, config, options = {}) => {
     const OpenAI = require("openai");
     const client = new OpenAI({
       apiKey: config.apiKey,
-      baseURL: "https://api.x.ai/v1", // Grok dùng base URL khác
+      baseURL: "https://api.x.ai/v1",
     });
 
     const responseMode = options.responseMode || "json";
@@ -736,7 +741,7 @@ ${jsonSchema}
 Quy tắc:
 - Trả lời bằng tiếng Việt
 - definition: ngắn gọn, súc tích, chính xác (1-2 câu)
-- detailedExplanation: chi tiết khoảng 2 đoạn vừa đủ không quá dài. Sử dụng \\n để xuống dòng giữa các đoạn
+- detailedExplanation: chi tiết nhưng vừa đủ (không quá dài). Chỉ dùng \\n để cách giữa các ý, KHÔNG dùng \\n\\n (double newline)
 - examples: ít nhất 1 ví dụ thực tế, mỗi ví dụ là 1 câu hoàn chỉnh
 - partOfSpeech: chọn MỘT trong: noun, verb, adjective, adverb, phrase, abbreviation
 - field: lĩnh vực chuyên môn chính của thuật ngữ
@@ -752,7 +757,7 @@ ${jsonSchema}
 Rules:
 - Respond in English
 - definition: concise, accurate (1-2 sentences)
-- detailedExplanation: detailed about 2 paragraphs, not too long. Use \\n for line breaks between paragraphs
+- detailedExplanation: detailed but concise (not too long). Use only \\n for line breaks between main points, NEVER use \\n\\n (double newline)
 - examples: at least 1 real-world example, each a complete sentence
 - partOfSpeech: choose ONE from: noun, verb, adjective, adverb, phrase, abbreviation
 - field: primary field of expertise
@@ -768,7 +773,7 @@ ${jsonSchema}
 ກົດລະບຽບ:
 - ຕອບເປັນພາສາລາວ
 - definition: ສັ້ນ, ຊັດເຈນ (1-2 ປະໂຫຍກ)
-- detailedExplanation: ລາຍລະອຽດ 2 ວັກ, ບໍ່ຍາວເກີນ. ໃຊ້ \\n ເພື່ອຂຶ້ນແຖວໃໝ່
+- detailedExplanation: ລາຍລະອຽດ ຕາມຄວາມຈໍາເປັນ (ບໍ່ຍາວເກີນ). ໃຊ້ \\n ເທົ່ານັ້ນ, ບໍ່ໃຊ້ \\n\\n
 - examples: ຢ່າງໜ້ອຍ 1 ຕົວຢ່າງຕົວຈິງ
 - partOfSpeech: ເລືອກ 1 ຈາກ: noun, verb, adjective, adverb, phrase, abbreviation
 - field: ຂົງເຂດຊ່ຽວຊານຫຼັກ
@@ -886,7 +891,7 @@ const getMockResponse = (term, language) => {
   const mockData = {
     vi: {
       definition: `"${term}" là một thuật ngữ chưa có trong hệ thống từ điển OpenDict.`,
-      detailedExplanation: `Thuật ngữ **"${term}"** hiện chưa có trong cơ sở dữ liệu từ điển của chúng tôi.\n\nĐây có thể là thuật ngữ thuộc các lĩnh vực: Công nghệ thông tin, Y học, Kỹ thuật, Kinh tế, hoặc các ngành khác.\n\n**Gợi ý:**\n- Đóng góp định nghĩa nếu bạn biết về thuật ngữ này\n- Liên hệ với quản trị viên để bổ sung\n- Tìm kiếm trên các nguồn tài liệu tham khảo\n\n*Đây là phản hồi mẫu. Để sử dụng AI thực, Admin cần cấu hình API key trong phần Cài đặt hệ thống.*`,
+      detailedExplanation: `Thuật ngữ **"${term}"** hiện chưa có trong cơ sở dữ liệu từ điển của chúng tôi.\nĐây có thể là thuật ngữ thuộc các lĩnh vực: Công nghệ thông tin, Y học, Kỹ thuật, Kinh tế, hoặc các ngành khác.\n\n**Gợi ý:**\n- Đóng góp định nghĩa nếu bạn biết về thuật ngữ này\n- Liên hệ với quản trị viên để bổ sung\n- Tìm kiếm trên các nguồn tài liệu tham khảo\n\n*Đây là phản hồi mẫu. Để sử dụng AI thực, Admin cần cấu hình API key trong phần Cài đặt hệ thống.*`,
       examples: [
         `Thuật ngữ "${term}" thường được sử dụng trong ngữ cảnh chuyên ngành.`,
         `Bạn có thể tìm hiểu thêm về "${term}" từ các tài liệu chuyên môn.`,
@@ -898,7 +903,7 @@ const getMockResponse = (term, language) => {
     },
     en: {
       definition: `"${term}" is a specialized term not yet available in our dictionary system.`,
-      detailedExplanation: `The term **"${term}"** is not yet in our dictionary database.\n\nThis term may belong to fields such as: Information Technology, Medicine, Engineering, Economics, or other industries.\n\n**Suggestions:**\n- Contribute the definition if you know about this term\n- Contact the administrator to add it\n- Search specialized literature sources\n\n*This is a sample response. To use real AI, Admin needs to configure API key in System Settings.*`,
+      detailedExplanation: `The term **"${term}"** is not yet in our dictionary database.\nThis term may belong to fields such as: Information Technology, Medicine, Engineering, Economics, or other industries.\n\n**Suggestions:**\n- Contribute the definition if you know about this term\n- Contact the administrator to add it\n- Search specialized literature sources\n\n*This is a sample response. To use real AI, Admin needs to configure API key in System Settings.*`,
       examples: [
         `The term "${term}" is commonly used in specialized contexts.`,
         `You can learn more about "${term}" from professional literature.`,
@@ -910,7 +915,7 @@ const getMockResponse = (term, language) => {
     },
     lo: {
       definition: `"${term}" ແມ່ນຄຳສັບເຕັກນິກທີ່ຍັງບໍ່ມີໃນລະບົບວັດຈະນານຸກົມ.`,
-      detailedExplanation: `ຄຳສັບ **"${term}"** ຍັງບໍ່ມີໃນຖານຂໍ້ມູນວັດຈະນານຸກົມຂອງພວກເຮົາ.\n\nຄຳສັບນີ້ອາດຈະເປັນຂອງຂົງເຂດຕ່າງໆ.\n\n*ນີ້ແມ່ນຄຳຕອບຕົວຢ່າງ. ເພື່ອໃຊ້ AI ຈິງ, Admin ຕ້ອງຕັ້ງຄ່າ API key.*`,
+      detailedExplanation: `ຄຳສັບ **"${term}"** ຍັງບໍ່ມີໃນຖານຂໍ້ມູນວັດຈະນານຸກົມຂອງພວກເຮົາ.\nຄຳສັບນີ້ອາດຈະເປັນຂອງຂົງເຂດຕ່າງໆ.\n\n*ນີ້ແມ່ນຄຳຕອບຕົວຢ່າງ. ເພື່ອໃຊ້ AI ຈິງ, Admin ຕ້ອງຕັ້ງຄ່າ API key.*`,
       examples: [
         `ຄຳສັບ "${term}" ຖືກນຳໃຊ້ໃນບໍລິບົດສະເພາະ.`,
         `ທ່ານສາມາດຮຽນຮູ້ເພີ່ມເຕີມກ່ຽວກັບ "${term}" ຈາກເອກະສານຊ່ຽວຊານ.`,
@@ -1029,7 +1034,20 @@ const askAgentChat = async ({
       context,
     });
 
-    const aiRawResponse = await callAiProvider(prompt, config, {
+    // Enhance prompt với Knowledge Base context
+    let enhancedPrompt = prompt;
+    try {
+      enhancedPrompt = await knowledgeBaseService.buildKnowledgeEnhancedPrompt(
+        prompt,
+        trimmedQuery,
+        normalizedLanguage,
+      );
+    } catch (kbError) {
+      console.warn("Knowledge base enhancement error:", kbError.message);
+      // Tiếp tục dùng prompt gốc nếu có lỗi
+    }
+
+    const aiRawResponse = await callAiProvider(enhancedPrompt, config, {
       responseMode: "text",
     });
 

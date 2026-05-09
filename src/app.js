@@ -38,6 +38,7 @@ const reportStatsRoutes = require("./routes/reportStatsRoutes");
 const feedbackRoutes = require("./routes/feedbackRoutes");
 const reputationRoutes = require("./routes/reputationRoutes");
 const leaderboardRoutes = require("./routes/leaderboardRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
 
@@ -133,6 +134,9 @@ app.use("/api/report-stats", reportStatsRoutes);
 app.use("/api/contact", feedbackRoutes);
 app.use("/api/reputation", reputationRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
+// Mount admin routes under /api/admin so frontend using NEXT_PUBLIC_API_URL with
+// a trailing /api base path can call admin endpoints (e.g. /api/admin/audit-logs)
+app.use("/api/admin", adminRoutes);
 
 // Kiểm tra sức khỏe dịch vụ (không áp dụng rate limit)
 app.get("/health", (req, res) => {

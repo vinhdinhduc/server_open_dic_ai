@@ -2,73 +2,81 @@ const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const User = require("../models/User");
 
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL:
-        process.env.GOOGLE_CALLBACK_URL || "/api/auth/google/callback",
-      proxy: true,
-    },
-    async (accessToken, refreshToken, profile, done) => {
-      try {
-        const { id: googleId, displayName, emails, photos } = profile;
-        const email = emails && emails[0] ? emails[0].value : null;
-        const avatar = photos && photos[0] ? photos[0].value : null;
+// Only initialize Google strategy if credentials are available
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL:
+          process.env.GOOGLE_CALLBACK_URL || "/api/auth/google/callback",
+        proxy: true,
+      },
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          const { id: googleId, displayName, emails, photos } = profile;
+          const email = emails && emails[0] ? emails[0].value : null;
+          const avatar = photos && photos[0] ? photos[0].value : null;
 
-        if (!email) {
-          return done(new Error("Không thể lấy email từ Google"), null);
-        }
-
-        let user = await User.findOne({
-          $or: [{ googleId }, { email }],
-        });
-
-        if (user) {
-          if (user.status === "banned") {
-            return done(new Error("Tài khoản của bạn đã bị khóa"), null);
+          if (!email) {
+            return done(new Error("Không thể lấy email từ Google"), null);
           }
 
-          if (!user.googleId) {
-            user.googleId = googleId;
-            user.authProvider = "google";
-          }
-
-          if (avatar && !user.avatar) {
-            user.avatar = avatar;
-          }
-
-          user.emailVerified = true;
-          if (user.status === "inactive") {
-            user.status = "active";
-          }
-          user.lastLogin = Date.now();
-
-          await user.save();
-        } else {
-          // Tạo người dùng mới
-          user = await User.create({
-            googleId,
-            email,
-            fullName: displayName,
-            avatar,
-            authProvider: "google",
-            emailVerified: true,
-            status: "active",
-            lastLogin: Date.now(),
+          let user = await User.findOne({
+            $or: [{ googleId }, { email }],
           });
-        }
 
-        // Return user to be serialized
-        return done(null, user);
-      } catch (error) {
-        console.error("Google OAuth Strategy Error:", error);
-        return done(error, null);
-      }
-    },
-  ),
-);
+          if (user) {
+            if (user.status === "banned") {
+              return done(new Error("Tài khoản của bạn đã bị khóa"), null);
+            }
+
+            if (!user.googleId) {
+              user.googleId = googleId;
+              user.authProvider = "google";
+            }
+
+            if (avatar && !user.avatar) {
+              user.avatar = avatar;
+            }
+
+            user.emailVerified = true;
+            if (user.status === "inactive") {
+              user.status = "active";
+            }
+            user.lastLogin = Date.now();
+
+            await user.save();
+          } else {
+            // Tạo người dùng mới
+            user = await User.create({
+              googleId,
+              email,
+              fullName: displayName,
+              avatar,
+              authProvider: "google",
+              emailVerified: true,
+              status: "active",
+              lastLogin: Date.now(),
+            });
+          }
+
+          // Return user to be serialized
+          return done(null, user);
+        } catch (error) {
+          console.error("Google OAuth Strategy Error:", error);
+          return done(error, null);
+        }
+      },
+    ),
+  );
+  console.log("✓ Google OAuth strategy initialized");
+} else {
+  console.warn(
+    "⚠ Google OAuth credentials not found in env—skipping Google OAuth",
+  );
+}
 
 passport.serializeUser((user, done) => {
   done(null, user._id);

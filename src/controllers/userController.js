@@ -3,6 +3,7 @@ const userService = require("../services/userService");
 const exportService = require("../services/exportService");
 const emailService = require("../services/emailService");
 const SystemConfig = require("../models/SystemConfig");
+const { logAudit, ACTIONS } = require("../services/auditLogService");
 
 /**
  * @route   POST /api/users
@@ -82,6 +83,31 @@ exports.toggleUserStatus = async (req, res, next) => {
     const { id } = req.params;
     const { status } = req.body;
     const user = await userService.toggleUserStatus(id, status);
+    // Fire-and-forget audit log for locking/unlocking user
+    try {
+      const action =
+        status === "banned" || status === "locked"
+          ? ACTIONS.BAN_USER
+          : ACTIONS.LOCK_ACCOUNT;
+      logAudit({
+        action,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "user",
+          resourceId: user?._id || id,
+          resourceName: user?.email || user?.username || null,
+        },
+        diff: { status: { before: user?.status, after: status } },
+      });
+    } catch (e) {
+      /* ignore */
+    }
     return successResponse(res, "Cập nhật trạng thái thành công", user);
   } catch (error) {
     next(error);

@@ -1,4 +1,5 @@
 const aiService = require("../services/aiService");
+const chatSessionService = require("../services/chatSessionService");
 const reputationService = require("../services/reputationService");
 const { REPUTATION } = require("../utils/constants");
 const { successResponse, errorResponse } = require("../utils/response");
@@ -379,6 +380,60 @@ const getAPIUsage = async (req, res) => {
   }
 };
 
+/**
+ * Initialize AI Chat Session
+ * POST /api/ai/session
+ */
+const initializeChatSession = async (req, res) => {
+  try {
+    const { currentPage = "home", language = "vi" } = req.body;
+    const userId = req.user?.id;
+    const userRole = req.user?.role || "user";
+
+    const session = chatSessionService.createSession(userId, {
+      currentPage,
+      language,
+      userRole,
+    });
+
+    return successResponse(res, "Chat session initialized", {
+      sessionId: session.id,
+      context: session.context,
+      preferences: session.preferences,
+    });
+  } catch (error) {
+    console.error("Initialize Chat Session Error:", error);
+    return errorResponse(res, "Không thể tạo chat session", 500);
+  }
+};
+
+/**
+ * Get Chat Session Info
+ * GET /api/ai/session/:sessionId
+ */
+const getSessionInfo = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const session = chatSessionService.getSession(sessionId);
+    if (!session) {
+      return errorResponse(res, "Chat session không tồn tại", 404);
+    }
+
+    const summary = chatSessionService.getConversationSummary(sessionId);
+
+    return successResponse(res, "Chat session info", {
+      sessionId: session.id,
+      context: session.context,
+      preferences: session.preferences,
+      summary,
+    });
+  } catch (error) {
+    console.error("Get Chat Session Info Error:", error);
+    return errorResponse(res, "Không thể lấy thông tin session", 500);
+  }
+};
+
 module.exports = {
   askAboutTerm,
   getChatHistory,
@@ -388,4 +443,6 @@ module.exports = {
   testConnection,
   askAboutSpecificTerm,
   getAPIUsage,
+  initializeChatSession,
+  getSessionInfo,
 };
