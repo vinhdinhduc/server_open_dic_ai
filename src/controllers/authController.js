@@ -1,5 +1,6 @@
 const { successResponse } = require("../utils/response");
 const authService = require("../services/authService");
+const { logAudit, ACTIONS } = require("../services/auditLogService");
 
 //đăng kí
 
@@ -7,6 +8,33 @@ exports.register = async (req, res, next) => {
   try {
     const { fullName, email, password } = req.body;
     const user = await authService.register({ fullName, email, password });
+    try {
+      logAudit({
+        action: ACTIONS.USER_CREATE,
+        actor: {
+          userId: user?.user?.id || null,
+          email: user?.user?.email || email,
+          fullName: user?.user?.fullName || fullName,
+          role: user?.user?.role || "user",
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "user",
+          resourceId: user?.user?.id || null,
+          resourceName: user?.user?.email || email,
+        },
+        diff: {
+          before: null,
+          after: {
+            fullName,
+            email,
+          },
+        },
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
     successResponse(res, "Đăng ký thành công", user, 201);
   } catch (error) {
     next(error);
@@ -22,9 +50,51 @@ exports.login = async (req, res, next) => {
     const { email, password, rememberMe } = req.body;
 
     const result = await authService.login(email, password, rememberMe);
+    try {
+      logAudit({
+        action: ACTIONS.LOGIN_SUCCESS,
+        actor: {
+          userId: result?.user?.id || null,
+          email: result?.user?.email || email,
+          fullName: result?.user?.fullName || null,
+          role: result?.user?.role || null,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "auth",
+          resourceId: result?.user?.id || null,
+          resourceName: result?.user?.email || email,
+        },
+        diff: null,
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
 
     return successResponse(res, "Đăng nhập thành công", result);
   } catch (error) {
+    try {
+      logAudit({
+        action: ACTIONS.LOGIN_FAILED,
+        actor: {
+          email: req.body?.email || null,
+          fullName: null,
+          role: null,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "auth",
+          resourceName: req.body?.email || null,
+        },
+        diff: null,
+        status: "failed",
+        reason: error.message,
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
     next(error);
   }
 };
@@ -57,6 +127,30 @@ exports.updateProfile = async (req, res, next) => {
     const updates = req.body;
 
     const result = await authService.updateProfile(userId, updates);
+    try {
+      logAudit({
+        action: ACTIONS.USER_UPDATE,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          fullName: req.user?.fullName,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "user",
+          resourceId: req.user?._id,
+          resourceName: req.user?.email,
+        },
+        diff: {
+          before: null,
+          after: updates,
+        },
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
 
     return successResponse(res, "Cập nhật thông tin thành công", result);
   } catch (error) {
@@ -80,6 +174,28 @@ exports.changePassword = async (req, res, next) => {
       newPassword,
     );
 
+    try {
+      logAudit({
+        action: ACTIONS.PASSWORD_CHANGE,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          fullName: req.user?.fullName,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "user",
+          resourceId: req.user?._id,
+          resourceName: req.user?.email,
+        },
+        diff: null,
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
+
     return successResponse(res, result.message);
   } catch (error) {
     next(error);
@@ -95,6 +211,27 @@ exports.logout = async (req, res, next) => {
   try {
     const userId = req.user._id;
     const result = await authService.logout(userId);
+    try {
+      logAudit({
+        action: ACTIONS.LOGOUT,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          fullName: req.user?.fullName,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "auth",
+          resourceId: req.user?._id,
+          resourceName: req.user?.email,
+        },
+        diff: null,
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
     return successResponse(res, result.message);
   } catch (error) {
     next(error);
@@ -221,6 +358,29 @@ exports.verifyEmail = async (req, res, next) => {
     }
 
     const result = await authService.verifyEmail(token);
+
+    try {
+      logAudit({
+        action: ACTIONS.EMAIL_VERIFY,
+        actor: {
+          userId: req.user?._id || null,
+          email: req.user?.email || req.body?.email || null,
+          fullName: req.user?.fullName || null,
+          role: req.user?.role || null,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "user",
+          resourceId: req.user?._id || null,
+          resourceName: req.user?.email || req.body?.email || null,
+        },
+        diff: null,
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
+
     return successResponse(res, result.message);
   } catch (error) {
     next(error);

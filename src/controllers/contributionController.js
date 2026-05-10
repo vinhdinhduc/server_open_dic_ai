@@ -1,6 +1,7 @@
 const { successResponse, errorResponse } = require("../utils/response");
 const Contribution = require("../models/Contribution");
 const contributionService = require("../services/contributionService");
+const { logAudit, ACTIONS } = require("../services/auditLogService");
 
 exports.createContribution = async (req, res, next) => {
   try {
@@ -120,6 +121,32 @@ exports.approveContribution = async (req, res, next) => {
       overrideData,
       req.user, // Truyền user để kiểm tra quyền category
     );
+    try {
+      logAudit({
+        action: ACTIONS.CONTRIBUTION_APPROVE,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          fullName: req.user?.fullName,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "contribution",
+          resourceId: id,
+          resourceName:
+            result?.term?.term?.vi || result?.contribution?.term || null,
+        },
+        diff: {
+          before: { status: "pending" },
+          after: { status: "approved", moderatorNote: moderatorNote || null },
+        },
+        reason: moderatorNote || null,
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
     return successResponse(res, "Phê duyệt đóng góp thành công", result);
   } catch (error) {
     next(error);
@@ -139,6 +166,31 @@ exports.rejectContribution = async (req, res, next) => {
       moderatorNote,
       req.user, // Truyền user để kiểm tra quyền category
     );
+    try {
+      logAudit({
+        action: ACTIONS.CONTRIBUTION_REJECT,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          fullName: req.user?.fullName,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "contribution",
+          resourceId: id,
+          resourceName: result?.term || result?.contribution?.term || null,
+        },
+        diff: {
+          before: { status: "pending" },
+          after: { status: "rejected", moderatorNote: moderatorNote || null },
+        },
+        reason: moderatorNote || null,
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
     return successResponse(res, "Từ chối đóng góp thành công", result);
   } catch (error) {
     next(error);
@@ -158,6 +210,27 @@ exports.deleteContribution = async (req, res, next) => {
       id,
       req.user?._id || null,
     );
+    try {
+      logAudit({
+        action: ACTIONS.CONTRIBUTION_DELETE,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          fullName: req.user?.fullName,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "contribution",
+          resourceId: id,
+          resourceName: null,
+        },
+        diff: null,
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
 
     return successResponse(res, result.message);
   } catch (error) {
@@ -206,6 +279,28 @@ exports.bulkApprove = async (req, res, next) => {
       moderatorNote || "",
       req.user,
     );
+    try {
+      logAudit({
+        action: ACTIONS.CONTRIBUTION_APPROVE,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          fullName: req.user?.fullName,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "contribution_bulk",
+          resourceId: null,
+          resourceName: null,
+        },
+        diff: { ids: ids || [], result },
+        reason: moderatorNote || null,
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
     return successResponse(
       res,
       `Đã phê duyệt ${result.success} đóng góp`,
@@ -237,6 +332,28 @@ exports.bulkReject = async (req, res, next) => {
       moderatorNote,
       req.user,
     );
+    try {
+      logAudit({
+        action: ACTIONS.CONTRIBUTION_REJECT,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          fullName: req.user?.fullName,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "contribution_bulk",
+          resourceId: null,
+          resourceName: null,
+        },
+        diff: { ids: ids || [], result },
+        reason: moderatorNote || null,
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
     return successResponse(
       res,
       `Đã từ chối ${result.success} đóng góp`,

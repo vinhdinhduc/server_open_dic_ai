@@ -72,6 +72,30 @@ exports.createTerm = async (req, res, next) => {
 
     const userId = req.user._id;
     const newTerm = await termService.createTerm(termData, userId);
+    try {
+      logAudit({
+        action: ACTIONS.TERM_CREATE,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "term",
+          resourceId: newTerm?._id,
+          resourceName:
+            newTerm?.term?.vi || newTerm?.term || newTerm?.name || null,
+        },
+        diff: {
+          before: null,
+          after: termData,
+        },
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
     return successResponse(res, "Tạo thuật ngữ thành công", newTerm, 201);
   } catch (error) {
     next(error);
@@ -99,31 +123,56 @@ exports.updateTerm = async (req, res, next) => {
     }
 
     const userId = req.user._id;
+    const beforeTerm = await termService.getTermById(id, userId);
     const updatedTerm = await termService.updateTerm(id, termData, userId);
-    // Fire-and-forget audit log for approval
-    if (termData.status === "approved") {
-      try {
-        logAudit({
-          action: ACTIONS.APPROVE_TERM,
-          actor: {
-            userId: req.user?._id,
-            email: req.user?.email,
-            role: req.user?.role,
-            ip: req.ip,
-            userAgent: req.get("User-Agent"),
+    const auditAction =
+      termData.status === "approved"
+        ? ACTIONS.TERM_APPROVE
+        : termData.status === "rejected"
+          ? ACTIONS.TERM_REJECT
+          : ACTIONS.TERM_UPDATE;
+    try {
+      logAudit({
+        action: auditAction,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "term",
+          resourceId: updatedTerm?._id || id,
+          resourceName:
+            updatedTerm?.name ||
+            updatedTerm?.term ||
+            beforeTerm?.name ||
+            beforeTerm?.term ||
+            null,
+        },
+        diff: {
+          before: {
+            status: beforeTerm?.status,
+            term: beforeTerm?.term,
+            definition: beforeTerm?.definition,
+            examples: beforeTerm?.examples,
+            tags: beforeTerm?.tags,
           },
-          target: {
-            resourceType: "term",
-            resourceId: updatedTerm?._id || id,
-            resourceName: updatedTerm?.name || updatedTerm?.term || null,
+          after: {
+            status: updatedTerm?.status,
+            term: updatedTerm?.term,
+            definition: updatedTerm?.definition,
+            examples: updatedTerm?.examples,
+            tags: updatedTerm?.tags,
           },
-          diff: { status: { before: "pending", after: "approved" } },
-          reason: req.body.moderatorNote || null,
-        });
-      } catch (e) {
-        /* ignore */
-      }
+        },
+        reason: req.body.moderatorNote || null,
+      });
+    } catch (e) {
+      /* ignore audit failure */
     }
+    // Fire-and-forget audit log for approval
     return successResponse(res, "Cập nhật thuật ngữ thành công", updatedTerm);
   } catch (error) {
     next(error);
@@ -137,7 +186,7 @@ exports.deleteTerm = async (req, res, next) => {
     // Fire-and-forget audit log for deletion
     try {
       logAudit({
-        action: ACTIONS.DELETE_TERM,
+        action: ACTIONS.TERM_DELETE,
         actor: {
           userId: req.user?._id,
           email: req.user?.email,

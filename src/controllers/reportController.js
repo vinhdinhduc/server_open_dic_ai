@@ -1,5 +1,6 @@
 const { successResponse } = require("../utils/response");
 const reportService = require("../services/reportService");
+const { logAudit, ACTIONS } = require("../services/auditLogService");
 
 /**
  * @route   POST /api/reports
@@ -12,6 +13,34 @@ exports.createReport = async (req, res, next) => {
     const reporterId = req.user._id;
 
     const report = await reportService.createReport(reportData, reporterId);
+    try {
+      logAudit({
+        action: ACTIONS.REPORT_CREATE,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          fullName: req.user?.fullName,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "report",
+          resourceId: report?._id,
+          resourceName: report?.reason || report?.type || null,
+        },
+        diff: {
+          before: null,
+          after: {
+            targetId: reportData.targetId,
+            reason: reportData.reason,
+            description: reportData.description,
+          },
+        },
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
 
     return successResponse(res, "Báo xấu đã được gửi thành công", report, 201);
   } catch (error) {
@@ -82,6 +111,40 @@ exports.resolveReport = async (req, res, next) => {
       resolveData,
       req.user,
     );
+    try {
+      logAudit({
+        action:
+          resolveData.status === "resolved"
+            ? ACTIONS.REPORT_RESOLVED
+            : ACTIONS.REPORT_REJECTED,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          fullName: req.user?.fullName,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "report",
+          resourceId: report?._id || id,
+          resourceName: report?.reason || report?.type || null,
+        },
+        diff: {
+          before: {
+            status: "pending",
+          },
+          after: {
+            status: resolveData.status,
+            moderatorNote: resolveData.moderatorNote || null,
+            actionTaken: resolveData.actionTaken || null,
+          },
+        },
+        reason: resolveData.moderatorNote || null,
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
 
     return successResponse(res, "Xử lý báo xấu thành công", report);
   } catch (error) {

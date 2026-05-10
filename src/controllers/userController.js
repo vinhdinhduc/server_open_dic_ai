@@ -14,6 +14,34 @@ exports.createUser = async (req, res, next) => {
   try {
     const userData = req.body;
     const user = await userService.createUser(userData);
+    try {
+      logAudit({
+        action: ACTIONS.USER_CREATE,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "user",
+          resourceId: user?._id,
+          resourceName: user?.email || user?.fullName || null,
+        },
+        diff: {
+          before: null,
+          after: {
+            email: user?.email,
+            fullName: user?.fullName,
+            role: user?.role,
+            status: user?.status,
+          },
+        },
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
     return successResponse(res, "Tạo người dùng thành công", user, 201);
   } catch (error) {
     next(error);
@@ -66,7 +94,44 @@ exports.updateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
+    const beforeUser = await userService.getUserById(id);
     const user = await userService.updateUser(id, updateData);
+    try {
+      logAudit({
+        action: ACTIONS.USER_UPDATE,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "user",
+          resourceId: user?._id || id,
+          resourceName:
+            user?.email || user?.fullName || beforeUser?.email || null,
+        },
+        diff: {
+          before: {
+            fullName: beforeUser?.fullName,
+            role: beforeUser?.role,
+            status: beforeUser?.status,
+            preferredLanguage: beforeUser?.preferredLanguage,
+            moderationPermissions: beforeUser?.moderationPermissions,
+          },
+          after: {
+            fullName: user?.fullName,
+            role: user?.role,
+            status: user?.status,
+            preferredLanguage: user?.preferredLanguage,
+            moderationPermissions: user?.moderationPermissions,
+          },
+        },
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
     return successResponse(res, "Cập nhật thông tin thành công", user);
   } catch (error) {
     next(error);
@@ -82,13 +147,16 @@ exports.toggleUserStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+    const beforeUser = await userService.getUserById(id);
     const user = await userService.toggleUserStatus(id, status);
     // Fire-and-forget audit log for locking/unlocking user
     try {
       const action =
         status === "banned" || status === "locked"
-          ? ACTIONS.BAN_USER
-          : ACTIONS.LOCK_ACCOUNT;
+          ? ACTIONS.USER_BAN
+          : status === "active"
+            ? ACTIONS.USER_UNBAN
+            : ACTIONS.USER_LOCK;
       logAudit({
         action,
         actor: {
@@ -103,7 +171,7 @@ exports.toggleUserStatus = async (req, res, next) => {
           resourceId: user?._id || id,
           resourceName: user?.email || user?.username || null,
         },
-        diff: { status: { before: user?.status, after: status } },
+        diff: { status: { before: beforeUser?.status, after: status } },
       });
     } catch (e) {
       /* ignore */
@@ -122,7 +190,36 @@ exports.toggleUserStatus = async (req, res, next) => {
 exports.deleteUser = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const beforeUser = await userService.getUserById(id);
     const result = await userService.deleteUser(id);
+    try {
+      logAudit({
+        action: ACTIONS.USER_DELETE,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "user",
+          resourceId: beforeUser?._id || id,
+          resourceName: beforeUser?.email || beforeUser?.fullName || null,
+        },
+        diff: {
+          before: {
+            email: beforeUser?.email,
+            fullName: beforeUser?.fullName,
+            role: beforeUser?.role,
+            status: beforeUser?.status,
+          },
+          after: null,
+        },
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
     return successResponse(res, result.message);
   } catch (error) {
     next(error);

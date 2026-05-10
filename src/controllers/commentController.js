@@ -1,5 +1,6 @@
 const { successResponse } = require("../utils/response");
 const commentService = require("../services/commentService");
+const { logAudit, ACTIONS } = require("../services/auditLogService");
 
 /**
  * @route   GET /api/comments
@@ -102,6 +103,28 @@ exports.deleteComment = async (req, res, next) => {
 
     const result = await commentService.deleteComment(id, userId, userRole);
 
+    try {
+      logAudit({
+        action: ACTIONS.COMMENT_DELETE,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          fullName: req.user?.fullName,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "comment",
+          resourceId: id,
+          resourceName: null,
+        },
+        diff: null,
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
+
     return successResponse(res, result.message);
   } catch (error) {
     next(error);
@@ -126,6 +149,35 @@ exports.moderateComment = async (req, res, next) => {
       moderatorNote,
       req.user, // Truyền user để kiểm tra quyền category
     );
+
+    try {
+      logAudit({
+        action:
+          status === "approved"
+            ? ACTIONS.COMMENT_APPROVE
+            : ACTIONS.COMMENT_REJECT,
+        actor: {
+          userId: req.user?._id,
+          email: req.user?.email,
+          fullName: req.user?.fullName,
+          role: req.user?.role,
+          ip: req.ip,
+          userAgent: req.get("User-Agent"),
+        },
+        target: {
+          resourceType: "comment",
+          resourceId: id,
+          resourceName: comment?.content ? comment.content.slice(0, 120) : null,
+        },
+        diff: {
+          before: null,
+          after: { status, moderatorNote: moderatorNote || null },
+        },
+        reason: moderatorNote || null,
+      });
+    } catch (e) {
+      /* ignore audit failure */
+    }
 
     return successResponse(res, "Kiểm duyệt thành công", comment);
   } catch (error) {
