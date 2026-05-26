@@ -22,7 +22,6 @@ const ensureExplanationAIAccess = async (userId) => {
 };
 
 const ensureSpecificTermExplanationAccess = async (userId, userRole) => {
-  // Quản trị viên và moderator luôn có quyền truy cập AI không giới hạn
   if (userRole === "admin" || userRole === "moderator") {
     return null;
   }
@@ -96,7 +95,6 @@ const askAboutTerm = async (req, res) => {
       return errorResponse(res, "Ngôn ngữ không hợp lệ", 400);
     }
 
-    // Gọi AI service
     const result = await aiService.askAboutTerm(term, language, userId);
 
     if (result.success) {
@@ -143,7 +141,6 @@ const getAIStatus = async (req, res) => {
 };
 
 /**
- * Lấy cấu hình AI hiện tại (Admin only)
  * GET /api/ai/config
  */
 const getConfig = async (req, res) => {
@@ -167,7 +164,7 @@ const getConfig = async (req, res) => {
 };
 
 /**
- * Cập nhật cấu hình AI (Admin only)
+ * Cập nhật cấu hình AI
  * PUT /api/ai/config
  */
 const updateConfig = async (req, res) => {
@@ -229,7 +226,7 @@ const updateConfig = async (req, res) => {
 };
 
 /**
- * Test kết nối AI (Admin only)
+ * Test kết nối AI
  * POST /api/ai/test
  */
 const testConnection = async (req, res) => {
