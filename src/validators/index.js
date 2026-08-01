@@ -17,6 +17,8 @@ const authValidators = {
       .withMessage("Email là bắt buộc")
       .isEmail()
       .withMessage("Email không hợp lệ")
+      .matches(/@utb\.edu\.vn$/i)
+      .withMessage("Chỉ chấp nhận email trường có đuôi @utb.edu.vn")
       .normalizeEmail(),
     body("password")
       .trim()
@@ -67,6 +69,8 @@ const authValidators = {
       .withMessage("Email là bắt buộc")
       .isEmail()
       .withMessage("Email không hợp lệ")
+      .matches(/@utb\.edu\.vn$/i)
+      .withMessage("Chỉ chấp nhận email trường có đuôi @utb.edu.vn")
       .normalizeEmail(),
     body("fullName").trim().notEmpty().withMessage("Họ tên là bắt buộc"),
     body("avatar")

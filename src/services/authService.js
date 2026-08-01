@@ -22,9 +22,16 @@ const generateRefreshToken = (userId) => {
 
 //Đăng kí tài khoản mới
 exports.register = async ({ fullName, email, password }) => {
-  // kiểm tra email đã tồn tại chưa
+  const normalizedEmail = email?.trim().toLowerCase();
 
-  const existingEmail = await User.findOne({ email });
+  if (!normalizedEmail || !/@utb\.edu\.vn$/i.test(normalizedEmail)) {
+    const error = new Error("Chỉ chấp nhận email trường có đuôi @utb.edu.vn");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // kiểm tra email đã tồn tại chưa
+  const existingEmail = await User.findOne({ email: normalizedEmail });
   if (existingEmail) {
     const error = new Error("Email đã được sử dụng");
     error.statusCode = 400;
@@ -34,7 +41,7 @@ exports.register = async ({ fullName, email, password }) => {
 
   const newUser = await User.create({
     fullName,
-    email,
+    email: normalizedEmail,
     password,
     status: "inactive",
     emailVerified: false,
@@ -385,10 +392,17 @@ exports.resetPassword = async (token, newPassword) => {
  */
 exports.googleLogin = async (googleData) => {
   const { googleId, email, fullName, avatar } = googleData;
+  const normalizedEmail = email?.trim().toLowerCase();
+
+  if (!normalizedEmail || !/@utb\.edu\.vn$/i.test(normalizedEmail)) {
+    const error = new Error("Chỉ chấp nhận email trường có đuôi @utb.edu.vn");
+    error.statusCode = 403;
+    throw error;
+  }
 
   // Tìm user bằng googleId hoặc email
   let user = await User.findOne({
-    $or: [{ googleId }, { email }],
+    $or: [{ googleId }, { email: normalizedEmail }],
   });
 
   if (user) {
@@ -414,7 +428,7 @@ exports.googleLogin = async (googleData) => {
     // Tạo user mới
     user = await User.create({
       googleId,
-      email,
+      email: normalizedEmail,
       fullName,
       avatar,
       authProvider: "google",

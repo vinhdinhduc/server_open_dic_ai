@@ -310,7 +310,6 @@ const askAboutSpecificTerm = async (req, res) => {
     );
 
     if (result.success) {
-      // Lưu vào cache (chỉ với truy vấn thuật ngữ chuẩn, không áp dụng câu hỏi tùy chỉnh)
       if (!question && result.data) {
         const cacheData = {
           definition: result.data.definition,

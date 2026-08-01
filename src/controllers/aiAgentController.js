@@ -6,10 +6,6 @@ const reputationService = require("../services/reputationService");
 const { successResponse, errorResponse } = require("../utils/response");
 const { REPUTATION } = require("../utils/constants");
 
-/*
-  Chat với AI Agent 
-  POST /api/ai/agent/chat
- */
 const chatWithAgent = async (req, res) => {
   try {
     const { query, language = "vi", context = {} } = req.body;

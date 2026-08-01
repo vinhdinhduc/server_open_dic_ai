@@ -18,9 +18,18 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           const { id: googleId, displayName, emails, photos } = profile;
           const email = emails && emails[0] ? emails[0].value : null;
           const avatar = photos && photos[0] ? photos[0].value : null;
+          const normalizedEmail = email?.trim().toLowerCase();
 
-          if (!email) {
-            return done(new Error("Không thể lấy email từ Google"), null);
+          if (!normalizedEmail) {
+            // Fail authentication gracefully so Passport can redirect
+            return done(null, false, { message: "Không thể lấy email từ Google" });
+          }
+
+          if (!/@utb\.edu\.vn$/i.test(normalizedEmail)) {
+            // Fail authentication gracefully so Passport can redirect
+            return done(null, false, {
+              message: "Chỉ chấp nhận email trường có đuôi @utb.edu.vn",
+            });
           }
 
           let user = await User.findOne({
@@ -35,6 +44,9 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             if (!user.googleId) {
               user.googleId = googleId;
               user.authProvider = "google";
+            }
+            if (user.email !== normalizedEmail) {
+              user.email = normalizedEmail;
             }
 
             if (avatar && !user.avatar) {
@@ -52,7 +64,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             // Tạo người dùng mới
             user = await User.create({
               googleId,
-              email,
+              email: normalizedEmail,
               fullName: displayName,
               avatar,
               authProvider: "google",

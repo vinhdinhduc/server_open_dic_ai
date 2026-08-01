@@ -145,7 +145,8 @@ router.get(
 router.get(
   "/google/callback",
   passport.authenticate("google", {
-    failureRedirect: `${process.env.CLIENT_URL || "http://localhost:3000"}/login?error=google_auth_failed`,
+    // Redirect to registration page with an error so frontend can show a friendly message
+    failureRedirect: `${process.env.CLIENT_URL || "http://localhost:3000"}/register?error=domain_restricted`,
   }),
   authController.googleCallback,
 );
